@@ -2,6 +2,7 @@
 #include "include/gdt.h"
 #include <stdint.h>
 #include <stddef.h>
+#include "include/idt.h"
 
 /* --- Константы VGA --- */
 static const size_t VGA_WIDTH = 80;
