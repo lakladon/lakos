@@ -3,66 +3,110 @@
 #include <stdint.h>
 #include <stddef.h>
 
-
-/*  vga   */
+/* --- Константы VGA --- */
 static const size_t VGA_WIDTH = 80;
 static const size_t VGA_HEIGHT = 25;
-static uint16_t* const VGA_MEMORY = (uint16_t*) 0xB800;
+static uint16_t* const VGA_MEMORY = (uint16_t*) 0xB8000;
 
-
-/* GLOBAL */
+/* --- Глобальное состояние терминала --- */
 size_t terminal_row;
-size_t terminal_column
+size_t terminal_column;
 uint8_t terminal_color;
 uint16_t* terminal_buffer;
 
+/* --- Базовые функции строк --- */
 size_t strlen(const char* str) {
     size_t len = 0;
-    while (str[len]) len++
-    return len
+    while (str[len]) len++;
+    return len;
 }
 
 void terminal_initialize(void) {
-    termianl_row = 0;
+    terminal_row = 0;
     terminal_column = 0;
-    terminal_color = 0x07 // серый на чёрном
-    termianl_buffer = VGA_MEMORY;
-    for (size_t y = 0; y < VGA_WIDTH; y++) {
-        for (size_t x = 0; x < VGA_WIDTH + x){
-            terminal_buffer[ y * VGA_WIDTH + x] = (uint16_t)' ' | (uint16_t)terminal_color << 8;
+    terminal_color = 0x07; // Серый на черном
+    terminal_buffer = VGA_MEMORY;
+    for (size_t y = 0; y < VGA_HEIGHT; y++) {
+        for (size_t x = 0; x < VGA_WIDTH; x++) {
+            terminal_buffer[y * VGA_WIDTH + x] = (uint16_t)' ' | (uint16_t)terminal_color << 8;
         }
-
     }
 }
 
 void terminal_scroll() {
-    for (size_t y = 0; y < VGA_HEIGHT - 1; y++){
+    for (size_t y = 0; y < VGA_HEIGHT - 1; y++) {
         for (size_t x = 0; x < VGA_WIDTH; x++) {
-            terminal_buffer[y * VG_WIDTH + x] = terminal_buffer[(y + 1) * VGA_WIDTH + x];
-
+            terminal_buffer[y * VGA_WIDTH + x] = terminal_buffer[(y + 1) * VGA_WIDTH + x];
         }
     }
-for (size_t x = 0; x < VGA_WIDTH; x++) {
-    terminal_buffer[(VGA_HEIGHT - 1) * VGA_WIDTH + X ] = (uint16_t)' ' | (uint16_t)terminal_color <<8;
+    for (size_t x = 0; x < VGA_WIDTH; x++) {
+        terminal_buffer[(VGA_HEIGHT - 1) * VGA_WIDTH + x] = (uint16_t)' ' | (uint16_t)terminal_color << 8;
+    }
+}
 
-}
-}
 void terminal_putchar(char c) {
     if (c == '\n') {
         terminal_column = 0;
         if (++terminal_row == VGA_HEIGHT) {
             terminal_scroll();
-            termianl_row = VGA_HEIGHT - 1;
+            terminal_row = VGA_HEIGHT - 1;
         }
-        return
+        return;
     }
-    const size_t index = terminal_row * VGA_WIDHT + terminal_column;
-    terminal_buffer[index] = (uint16_t)c | (uint16_t)terminal_color << 8;
 
-    if (++termina_column == VGA_WIDTH) {
+    const size_t index = terminal_row * VGA_WIDTH + terminal_column;
+    terminal_buffer[index] = (uint16_t)c | (uint16_t)terminal_color << 8;
+    
+    if (++terminal_column == VGA_WIDTH) {
         terminal_column = 0;
         if (++terminal_row == VGA_HEIGHT) {
-            
+            terminal_scroll();
+            terminal_row = VGA_HEIGHT - 1;
         }
+    }
+}
+
+void terminal_writestring(const char* data) {
+    for (size_t i = 0; data[i] != '\0'; i++) terminal_putchar(data[i]);
+}
+
+void terminal_setcolor(uint8_t color) {
+    terminal_color = color;
+}
+
+extern void shell_main();
+extern void* find_file(void* tar_start, const char* filename);
+
+void* initrd_location = NULL;
+
+void kmain(multiboot_info_t* mb_info, uint32_t magic) {
+    init_gdt();
+    terminal_initialize();
+
+    terminal_setcolor(0x0B);
+    terminal_writestring("Lakos OS Kernel v0.3 Booting...\n");
+    terminal_setcolor(0x07);
+
+    if (magic != 0x2BADB002) {
+        terminal_writestring("Error: Invalid Multiboot magic number.\n");
+        return;
+    }
+
+    if (mb_info->flags & (1 << 3)) { 
+        if (mb_info->mods_count > 0) {
+            multiboot_module_t* mod = (multiboot_module_t*)mb_info->mods_addr;
+            initrd_location = (void*)mod->mod_start;
+            terminal_writestring("[ OK ] InitRD found at memory address.\n");
+        }
+    } else {
+        terminal_writestring("[ WARN ] No InitRD modules detected.\n");
+    }
+
+    terminal_writestring("GDT loaded. Memory mapped. Entering Shell...\n\n");
+
+    shell_main();
+
+    while(1) {
+        __asm__("hlt");
     }
 }
