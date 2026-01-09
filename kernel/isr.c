@@ -1,5 +1,6 @@
 #include <stdint.h>
-#include <include/idt.h>
+#include "idt.h"      // Убери include/
+#include "io.h"       // Если используешь порты (inb/outb)
 
 struct registers {
     uint32_t ds;                  // Data segment selector
