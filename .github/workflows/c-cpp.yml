@@ -17,12 +17,13 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          # Устанавливаем поддержку 32-бит для стандартного gcc
-          sudo apt-get install -y gcc-multilib nasm make binutils
+          # Устанавливаем поддержку x86 и инструменты бинарных файлов
+          sudo apt-get install -y gcc-multilib nasm make binutils binutils-i686-linux-gnu
           
-          # Трюк: создаем "подделку" i686-elf-gcc, указывающую на обычный gcc
-          # Это позволит твоему Makefile работать без правок
+          # Делаем симлинки для компилятора и линковщика
+          # Чтобы Makefile думал, что работает с i686-elf инструментами
           sudo ln -s /usr/bin/gcc /usr/bin/i686-elf-gcc
+          sudo ln -s /usr/bin/ld /usr/bin/i686-elf-ld
 
       - name: Build Kernel
         run: make
@@ -32,7 +33,7 @@ jobs:
         with:
           tag_name: v${{ github.run_number }}
           name: "Lakos OS Build ${{ github.run_number }}"
-          body: "Автоматический релиз ядра Lakos. Файл lakos.bin готов к запуску."
+          body: "Автоматическая сборка ядра. Файл lakos.bin готов."
           draft: false
           prerelease: false
           files: lakos.bin
