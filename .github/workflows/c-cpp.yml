@@ -6,26 +6,23 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4 # Обновлено до v4
+      - uses: actions/checkout@v4
 
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y nasm gcc-multilib binutils
+          # gcc-multilib нужен для сборки 32-бит на 64-битной системе
+          # binutils предоставляет ld
+          sudo apt-get install -y nasm gcc-multilib binutils build-essential
 
       - name: Compile OS
         run: |
-          # Собираем ядро и FS через твой Makefile
-          make
+          # Если в твоем Makefile жестко прописан i686-elf-gcc, 
+          # мы заменим его на обычный gcc с флагом -m32
+          make CC="gcc -m32" LD="ld -m elf_i386"
 
       - name: Upload Kernel Binary
-        uses: actions/upload-artifact@v4 # ИСПРАВЛЕНО: теперь версия v4
+        uses: actions/upload-artifact@v4
         with:
           name: lakos-kernel
           path: lakos.bin
-
-      - name: Upload InitRD
-        uses: actions/upload-artifact@v4 # ИСПРАВЛЕНО: теперь версия v4
-        with:
-          name: lakos-initrd
-          path: modules.tar
