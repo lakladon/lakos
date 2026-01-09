@@ -8,7 +8,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # Разрешение на создание релизов
+      contents: write
 
     steps:
       - name: Checkout code
@@ -17,7 +17,12 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
+          # Устанавливаем поддержку 32-бит для стандартного gcc
           sudo apt-get install -y gcc-multilib nasm make binutils
+          
+          # Трюк: создаем "подделку" i686-elf-gcc, указывающую на обычный gcc
+          # Это позволит твоему Makefile работать без правок
+          sudo ln -s /usr/bin/gcc /usr/bin/i686-elf-gcc
 
       - name: Build Kernel
         run: make
@@ -27,7 +32,7 @@ jobs:
         with:
           tag_name: v${{ github.run_number }}
           name: "Lakos OS Build ${{ github.run_number }}"
-          body: "Автоматическая сборка ядра. Файл lakos.bin прикреплен ниже."
+          body: "Автоматический релиз ядра Lakos. Файл lakos.bin готов к запуску."
           draft: false
           prerelease: false
           files: lakos.bin
