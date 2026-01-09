@@ -1,7 +1,7 @@
-[GLOBAL idt_flush]
+[BITS 32]
+global idt_load
+extern idtp ; это указатель на структуру IDT, проверь имя в idt.c
 
-idt_flush
-    move eax, [esp + 4]   ; Load the address of the new IDT into EAX
-    lidt [eax]
-    sti            ; Load the IDT register with the new IDT
-    ret                   ; Return from the function
+idt_load:
+    lidt [idtp]
+    ret
