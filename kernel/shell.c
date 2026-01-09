@@ -10,13 +10,7 @@ extern void* tar_lookup(void* archive, const char* filename);
 extern void tar_list_files(void* archive);
 extern void* initrd_location; // Переменная из kernel.c
 // Добавь в конец kernel/shell.c
-int strcmp(const char *s1, const char *s2) {
-    while (*s1 && (*s1 == *s2)) {
-        s1++;
-        s2++;
-    }
-    return *(unsigned char *)s1 - *(unsigned char *)s2;
-}
+
 char shell_buffer[256];
 int shell_ptr = 0;
 
@@ -62,4 +56,12 @@ void shell_main() {
     while(1) {
         __asm__("hlt");
     }
+}
+// Добавь в конец kernel/shell.c
+int strcmp(const char *s1, const char *s2) {
+    while (*s1 && (*s1 == *s2)) {
+        s1++;
+        s2++;
+    }
+    return *(unsigned char *)s1 - *(unsigned char *)s2;
 }
