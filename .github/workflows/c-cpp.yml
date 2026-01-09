@@ -1,37 +1,35 @@
-name: Build Kernel
+name: Build and Release
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
     branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Разрешение на создание релизов
 
     steps:
-    - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y gcc-multilib nasm make binutils
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib nasm make binutils
 
-    - name: Compile OS
-      run: make
+      - name: Build Kernel
+        run: make
 
-    # ШАГ ДЛЯ АВТО-РЕЛИЗА
-    - name: Create Release
-      if: github.ref == 'refs/heads/main' # Делать релиз только при пуше в main
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: "latest-build"
-        name: "Lakos OS Nightly Build"
-        draft: false
-        prerelease: true
-        files: |
-          lakos.bin
-          # Сюда можно добавить и .iso, если ты его генерируешь
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.run_number }}
+          name: "Lakos OS Build ${{ github.run_number }}"
+          body: "Автоматическая сборка ядра. Файл lakos.bin прикреплен ниже."
+          draft: false
+          prerelease: false
+          files: lakos.bin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
