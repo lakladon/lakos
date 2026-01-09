@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "kernel/include/io.h"
+#include <io.h>
 extern void shell_feed_char(char c); // Это исправит ошибку с shell_feed_char
 #define KBD_DATA_PORT 0x60
 
