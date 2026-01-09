@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include "idt.h"      // Убери include/
-#include "include/io.h"    // Если используешь порты (inb/outb)
+#include "io.h"    // Если используешь порты (inb/outb)
 extern void terminal_writestring(const char* data);
 struct registers {
     uint32_t ds;                  // Data segment selector
