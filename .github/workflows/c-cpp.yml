@@ -1,0 +1,45 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Обязательно для создания релизов
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          # Устанавливаем инструменты для 32-битной сборки
+          sudo apt-get install -y gcc-multilib nasm make binutils binutils-i686-linux-gnu
+          
+          # Создаем симлинки, чтобы Makefile нашел i686-elf инструменты
+          sudo ln -s /usr/bin/gcc /usr/bin/i686-elf-gcc
+          sudo ln -s /usr/bin/ld /usr/bin/i686-elf-ld
+
+      - name: Build Kernel
+        run: make
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          # Используем просто номер билда: v1, v2, v3...
+          tag_name: build-${{ github.run_number }}
+          name: "Lakos OS Build ${{ github.run_number }}"
+          body: |
+            Автоматическая сборка билда №${{ github.run_number }}.
+            Коммит: ${{ github.sha }}
+          draft: false
+          prerelease: false
+          files: lakos.bin
+          # Если такой билд уже есть (например, перезапуск), обновляем его
+          overwrite: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
