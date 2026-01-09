@@ -7,7 +7,8 @@ LD = i686-elf-ld
 # Было:
 
 # Стало (добавь -I. и убери лишнее):
-CFLAGS = -m32 -ffreestanding -O2 -Wall -Wextra -I. -Ikernel/include
+# Добавляем и корень (.), и папку include, и саму папку kernel
+CFLAGS = -m32 -ffreestanding -O2 -Wall -Wextra -I. -Ikernel/include -Ikernel
 ASFLAGS = -f elf32
 LDFLAGS = -T linker.ld -m elf_i386
 
