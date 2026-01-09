@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
+// Твоя структура заголовка
 struct tar_header {
     char name[100];
     char mode[8];
@@ -14,6 +15,7 @@ struct tar_header {
     char magic[6];
 } __attribute__((packed));
 
+// Твоя функция get_size
 unsigned int get_size(const char *in) {
     unsigned int size = 0;
     unsigned int j;
@@ -23,33 +25,49 @@ unsigned int get_size(const char *in) {
     return size;
 }
 
+// Эту функцию ищет линковщик для shell.c!
+void tar_list_files(void* archive) {
+    unsigned char* ptr = (unsigned char*)archive;
+    
+    // Если указатель на архив пустой, выходим
+    if (!ptr) return;
+
+    while (ptr[0] != '\0') {
+        struct tar_header* header = (struct tar_header*)ptr;
+
+        // Если это обычный файл (type '0' или '\0')
+        if (header->name[0] != '\0') {
+            // Здесь должен быть вызов твоей функции печати на экран
+            // Например: kprint(header->name); kprint("\n");
+        }
+
+        unsigned int size = get_size(header->size);
+        ptr += ((size + 511) / 512 + 1) * 512;
+    }
+}
+
+// Твоя функция поиска
 void* tar_lookup(void* archive, const char* filename) {
     unsigned char* ptr = (unsigned char*)archive;
 
     while (ptr[0] != '\0') {
-        struct tar_header* header = (struct tar_header*)ptr; // Добавлена *
+        struct tar_header* header = (struct tar_header*)ptr;
 
-        // Сравнение имен файлов
         int match = 1;
-        for (int i = 0; filename[i] != '\0'; i++) {
+        int i;
+        for (i = 0; filename[i] != '\0'; i++) {
             if (header->name[i] != filename[i]) {
                 match = 0;
                 break;
             }
         }
-        
-        // Если нашли файл — возвращаем адрес сразу за заголовком (512 байт)
-        if (match && (header->name[0] != '\0')) {
+        // Дополнительная проверка на конец строки в заголовке
+        if (match && header->name[i] == '\0') {
             return (void*)(ptr + 512);
         }
 
-        // Вычисляем размер файла и переходим к следующему заголовку
         unsigned int size = get_size(header->size);
-        // TAR выравнивает файлы по 512 байт. 
-        // Формула: заголовок (512) + данные (округленные вверх до 512)
         ptr += ((size + 511) / 512 + 1) * 512;
     }
-
-    return NULL; // Файл не найден
+    return NULL;
 }
-// this is the new shit by lakladon
