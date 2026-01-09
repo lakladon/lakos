@@ -4,7 +4,10 @@ AS = nasm
 LD = i686-elf-ld
 
 # Флаги
-CFLAGS = -m32 -ffreestanding -O2 -Wall -Wextra -Ikernel/include
+# Было:
+
+# Стало (добавь -I. и убери лишнее):
+CFLAGS = -m32 -ffreestanding -O2 -Wall -Wextra -I. -Ikernel/include
 ASFLAGS = -f elf32
 LDFLAGS = -T linker.ld -m elf_i386
 
