@@ -1,28 +1,37 @@
-name: Build Lakos OS
+name: Build Kernel
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v3
 
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          # gcc-multilib нужен для сборки 32-бит на 64-битной системе
-          # binutils предоставляет ld
-          sudo apt-get install -y nasm gcc-multilib binutils build-essential
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-multilib nasm make binutils
 
-      - name: Compile OS
-        run: |
-          # Если в твоем Makefile жестко прописан i686-elf-gcc, 
-          # мы заменим его на обычный gcc с флагом -m32
-          make CC="gcc -m32" LD="ld -m elf_i386"
+    - name: Compile OS
+      run: make
 
-      - name: Upload Kernel Binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: lakos-kernel
-          path: lakos.bin
+    # ШАГ ДЛЯ АВТО-РЕЛИЗА
+    - name: Create Release
+      if: github.ref == 'refs/heads/main' # Делать релиз только при пуше в main
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: "latest-build"
+        name: "Lakos OS Nightly Build"
+        draft: false
+        prerelease: true
+        files: |
+          lakos.bin
+          # Сюда можно добавить и .iso, если ты его генерируешь
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
