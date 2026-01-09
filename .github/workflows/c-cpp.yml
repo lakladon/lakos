@@ -6,7 +6,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4 # Обновлено до v4
 
       - name: Install Dependencies
         run: |
@@ -15,11 +15,17 @@ jobs:
 
       - name: Compile OS
         run: |
-          # Используем твой Makefile
+          # Собираем ядро и FS через твой Makefile
           make
 
       - name: Upload Kernel Binary
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4 # ИСПРАВЛЕНО: теперь версия v4
         with:
           name: lakos-kernel
           path: lakos.bin
+
+      - name: Upload InitRD
+        uses: actions/upload-artifact@v4 # ИСПРАВЛЕНО: теперь версия v4
+        with:
+          name: lakos-initrd
+          path: modules.tar
