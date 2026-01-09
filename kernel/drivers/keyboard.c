@@ -1,5 +1,6 @@
 #include <stdint.h>
-
+#include "io.h" // Это исправит ошибку с inb
+extern void shell_feed_char(char c); // Это исправит ошибку с shell_feed_char
 #define KBD_DATA_PORT 0x60
 
 char kbd_us[128] = {
