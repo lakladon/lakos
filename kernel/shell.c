@@ -1,22 +1,22 @@
 #include <stdint.h>
 
 extern void terminal_writestring(const char* data);
-extern volatile char last_key; // Берем из isr.c
+extern void terminal_putchar(char c);
+
+volatile char last_key = 0;
+
+// ТА САМАЯ ФУНКЦИЯ, которой не хватало линковщику
+void shell_feed_char(char c) {
+    last_key = c;
+}
 
 void shell_main() {
-    terminal_writestring("Shell loaded. Type something!\n");
-
     while(1) {
-        terminal_writestring("\nLakos> ");
-        
-        // Ждем нажатия клавиши (цикл ожидания)
+        terminal_writestring("Lakos> ");
         last_key = 0;
         while(last_key == 0) {
-            // Процессор отдыхает, пока не прилетит прерывание
             __asm__ volatile("hlt");
         }
-        
-        // Когда клавиша нажата, цикл пойдет на следующую итерацию
-        // и снова выведет Lakos> только ПОСЛЕ ввода.
+        // После нажатия клавиши цикл начнется заново
     }
 }
