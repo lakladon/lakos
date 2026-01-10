@@ -1,7 +1,6 @@
 #include <stdint.h>
 #include <io.h>
 
-// Структура IDT записи
 struct idt_entry {
     uint16_t base_low;
     uint16_t sel;
@@ -18,9 +17,8 @@ struct idt_ptr {
 struct idt_entry idt[256];
 struct idt_ptr idtp;
 
-// Эти функции мы объявим в ассемблере
-extern void idt_load();
-extern void irq1(); // Обработчик клавиатуры
+extern void idt_load(uint32_t ptr); 
+extern void irq1(); 
 
 void idt_set_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags) {
     idt[num].base_low = (base & 0xFFFF);
@@ -30,40 +28,44 @@ void idt_set_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags) {
     idt[num].flags = flags;
 }
 
-// РЕАЛИЗАЦИЯ idt_init
+void default_handler() {
+    outb(0x20, 0x20); 
+    outb(0xA0, 0x20);
+}
+
+void pic_remap() {
+    outb(0x20, 0x11);
+    outb(0xA0, 0x11);
+    outb(0x21, 0x20);
+    outb(0xA1, 0x28);
+    outb(0x21, 0x04);
+    outb(0xA1, 0x02);
+    outb(0x21, 0x01);
+    outb(0xA1, 0x01);
+    // Маскируем все прерывания
+    outb(0x21, 0xFF);
+    outb(0xA1, 0xFF);
+}
+
 void idt_init() {
     idtp.limit = (sizeof(struct idt_entry) * 256) - 1;
     idtp.base = (uint32_t)&idt;
 
-    // Очистка IDT
-    for(int i = 0; i < 256; i++) idt_set_gate(i, 0, 0, 0);
+    for(int i = 0; i < 256; i++) {
+        idt_set_gate(i, (uint32_t)default_handler, 0x08, 0x8E);
+    }
 
-    idt_load(); // Загрузка IDT через ассемблер
+    idt_load((uint32_t)&idtp);
 }
 
-// РЕАЛИЗАЦИЯ irq_install (Ремаппинг PIC и регистрация клавиатуры)
+// ТОЛЬКО ОДНА ФУНКЦИЯ irq_install
 void irq_install() {
-    // Инициализация PIC (ICW1)
-    outb(0x20, 0x11);
-    outb(0xA0, 0x11);
-    // Ремаппинг базовых векторов (ICW2)
-    outb(0x21, 0x20); // IRQ 0-7 -> 32-39
-    outb(0xA1, 0x28); // IRQ 8-15 -> 40-47
-    // Настройка связей (ICW3)
-    outb(0x21, 0x04);
-    outb(0xA1, 0x02);
-    // Режим 8086 (ICW4)
-    outb(0x21, 0x01);
-    outb(0xA1, 0x01);
-    // Маски прерываний (включаем только клавиатуру IRQ1)
-    outb(0x21, 0xFD); // 0xFD = 11111101 (бит 1 включен)
-    outb(0xA1, 0xFF);
-
-    // Регистрируем обработчик клавиатуры на вектор 33
+    pic_remap();
+    
+    // Устанавливаем обработчик клавиатуры
     idt_set_gate(33, (uint32_t)irq1, 0x08, 0x8E);
-}
 
-// Заглушка, чтобы не было ошибки undefined reference
-void isrs_install() {
-    // Здесь обычно регистрируют исключения процессора (0-31)
+    // Разрешаем только клавиатуру (IRQ1)
+    outb(0x21, 0xFD); 
+    outb(0xA1, 0xFF);
 }

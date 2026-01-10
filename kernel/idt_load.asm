@@ -1,7 +1,7 @@
-[BITS 32]
+[bits 32]
 global idt_load
-extern idtp ; это указатель на структуру IDT, проверь имя в idt.c
+extern idtp ; Ссылка на структуру из idt.c
 
 idt_load:
-    lidt [idtp]
+    lidt [idtp] ; Загружаем адрес и лимит IDT
     ret

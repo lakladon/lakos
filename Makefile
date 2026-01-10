@@ -12,7 +12,6 @@ endif
 AS = nasm
 CFLAGS = -m32 -ffreestanding -O2 -Wall -Wextra -I. -Ikernel -Ikernel/include -Ikernel/drivers
 LDFLAGS = -m elf_i386 -T linker.ld
-
 OBJ = boot/boot.o \
       kernel/kernel.o \
       kernel/shell.o \
@@ -20,7 +19,6 @@ OBJ = boot/boot.o \
       kernel/gdt.o \
       kernel/idt.o \
       kernel/isr.o \
-      kernel/drivers/keyboard.o \
       kernel/idt_flush.o \
       kernel/interrupts.o \
       kernel/idt_load.o \
