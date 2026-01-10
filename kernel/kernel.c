@@ -9,6 +9,10 @@ const multiboot_header_t __attribute__((section(".multiboot"))) header = {
     .checksum = -(MULTIBOOT_HEADER_MAGIC + 0)
 };
 
+void _start() {
+    kmain(0, 0);
+}
+
 // --- РЕАЛИЗАЦИЯ ФУНКЦИЙ ЭКРАНА ---
 uint16_t* vga_buffer = (uint16_t*)0xB8000;
 int term_col = 0;
