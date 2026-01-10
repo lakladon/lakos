@@ -1,8 +1,8 @@
 #include "include/multiboot.h"
 #include "include/gdt.h"
+#include "include/idt.h"
 #include <stdint.h>
 #include <stddef.h>
-#include "include/idt.h"
 
 /* --- Константы VGA --- */
 static const size_t VGA_WIDTH = 80;
@@ -25,7 +25,7 @@ size_t strlen(const char* str) {
 void terminal_initialize(void) {
     terminal_row = 0;
     terminal_column = 0;
-    terminal_color = 0x07; // Серый на черном
+    terminal_color = 0x07;
     terminal_buffer = VGA_MEMORY;
     for (size_t y = 0; y < VGA_HEIGHT; y++) {
         for (size_t x = 0; x < VGA_WIDTH; x++) {
@@ -75,42 +75,35 @@ void terminal_setcolor(uint8_t color) {
     terminal_color = color;
 }
 
+// Прототипы функций прерываний (должны быть в idt.c/irq.c)
+extern void idt_init();
+extern void isrs_install();
+extern void irq_install();
 extern void shell_main();
-extern void* find_file(void* tar_start, const char* filename);
 
 void* initrd_location = NULL;
-void kmain(multiboot_info_t* mb_info, uint32_t magic) {
-    init_gdt();
-    
-    // ДОБАВЬ ЭТИ ТРИ СТРОКИ:
-    idt_init();       // Инициализация таблицы IDT
-    isrs_install();   // Установка обработчиков исключений
-    irq_install();    // Ремаппинг PIC и установка обработчиков IRQ (вкл. клавиатуру)
 
+void kmain(multiboot_info_t* mb_info, uint32_t magic) {
+    // 1. Сначала инициализируем видео, чтобы видеть ошибки
     terminal_initialize();
+
+    // 2. Базовая инициализация железа
+    init_gdt();
+    idt_init();       
+    isrs_install();   
+    irq_install();    
 
     terminal_setcolor(0x0B);
     terminal_writestring("Lakos OS Kernel v0.3 Booting...\n");
     terminal_setcolor(0x07);
 
+    // 3. Проверка Multiboot Magic
     if (magic != 0x2BADB002) {
         terminal_writestring("Error: Invalid Multiboot magic number.\n");
         return;
     }
 
-    // ... остальная инициализация (память, модули) ...
-
-    terminal_writestring("GDT loaded. Memory mapped. Entering Shell...\n\nLakos> ");
-
-    // САМОЕ ВАЖНОЕ: Включаем прерывания на уровне процессора
-    asm volatile("sti");
-
-    while(1) {
-        // Здесь твой основной цикл шелла
-        // Если шелл работает через прерывания, он будет ждать ввода
-    }
-}
-
+    // 4. Поиск модулей (InitRD)
     if (mb_info->flags & (1 << 3)) { 
         if (mb_info->mods_count > 0) {
             multiboot_module_t* mod = (multiboot_module_t*)mb_info->mods_addr;
@@ -121,11 +114,16 @@ void kmain(multiboot_info_t* mb_info, uint32_t magic) {
         terminal_writestring("[ WARN ] No InitRD modules detected.\n");
     }
 
-    terminal_writestring("GDT loaded. Memory mapped. Entering Shell...\n\n");
+    terminal_writestring("GDT/IDT loaded. Memory mapped. Entering Shell...\n\nLakos> ");
 
+    // 5. Включаем прерывания перед запуском шелла
+    asm volatile("sti");
+
+    // 6. Запуск основной программы
     shell_main();
 
+    // 7. Если вышли из шелла — вечный сон
     while(1) {
-        __asm__("hlt");
+        asm volatile("hlt");
     }
 }
