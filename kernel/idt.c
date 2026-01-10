@@ -19,7 +19,7 @@ struct idt_entry idt[256];
 struct idt_ptr idtp;
 
 // Эти функции мы объявим в ассемблере
-extern void idt_load();
+extern void idt_load(uint32_t ptr);
 extern void irq1(); // Обработчик клавиатуры
 extern void irq12(); // Обработчик мыши
 
@@ -31,7 +31,6 @@ void idt_set_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags) {
     idt[num].flags = flags;
 }
 
-// РЕАЛИЗАЦИЯ idt_init
 void idt_init() {
     idtp.limit = (sizeof(struct idt_entry) * 256) - 1;
     idtp.base = (uint32_t)&idt;
@@ -39,7 +38,7 @@ void idt_init() {
     // Очистка IDT
     for(int i = 0; i < 256; i++) idt_set_gate(i, 0, 0, 0);
 
-    idt_load(); // Загрузка IDT через ассемблер
+    idt_load((uint32_t)&idtp);
 }
 
 // РЕАЛИЗАЦИЯ irq_install (Ремаппинг PIC и регистрация клавиатуры)
@@ -64,9 +63,4 @@ void irq_install() {
     idt_set_gate(33, (uint32_t)irq1, 0x08, 0x8E);
     // Регистрируем обработчик мыши на вектор 44
     idt_set_gate(44, (uint32_t)irq12, 0x08, 0x8E);
-}
-
-// Заглушка, чтобы не было ошибки undefined reference
-void isrs_install() {
-    // Здесь обычно регистрируют исключения процессора (0-31)
 }

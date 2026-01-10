@@ -1,40 +1,56 @@
-[extern isr_handler]
-[global irq1]
-[global irq12]
+[bits 32]
+extern isr_handler
+global irq1
+global irq12
 
 irq1:
-    cli             ; Выключаем прерывания
-    push byte 0     ; Ошибка (заглушка)
-    push byte 33    ; Номер прерывания (32 + 1)
-    jmp irq_common_stub
+    push byte 0      ; Фиктивный код ошибки
+    push byte 33     ; Номер прерывания (IRQ1 + 32)
+    pusha            ; Сохраняем все регистры (EAX, ECX, EDX, EBX, ESP, EBP, ESI, EDI)
 
-irq12:
-    cli
-    push byte 0
-    push byte 44    ; 32 + 12
-    jmp irq_common_stub
-
-irq_common_stub:
-    pushad          ; Сохраняем EAX, ECX, EDX...
-    
-    mov ax, ds      ; Сохраняем сегмент данных
+    mov ax, ds       ; Сохраняем сегмент данных
     push eax
 
-    mov ax, 0x10    ; Загружаем сегмент данных ядра
+    mov ax, 0x10     ; Загружаем сегмент данных ядра
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
 
-    call isr_handler ; Вызов Си-функции из kernel/isr.c
+    call isr_handler ; ВЫЗОВ ТВОЕГО СИ-КОДА
 
-    pop eax         ; Восстанавливаем сегменты
+    pop eax          ; Восстанавливаем оригинальный сегмент данных
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
 
-    popad           ; Восстанавливаем регистры
-    add esp, 8      ; Очищаем стек от номера прерывания и ошибки
-    sti
-    iret            ; Возврат из прерывания!
+    popa             ; Восстанавливаем регистры
+    add esp, 8       ; Очищаем стек (от номера и кода ошибки)
+    iret             ; ВОЗВРАТ ИЗ ПРЕРЫВАНИЯ - это оживит процессор
+
+irq12:
+    push byte 0      ; Фиктивный код ошибки
+    push byte 44     ; Номер прерывания (IRQ12 + 32)
+    pusha            ; Сохраняем все регистры (EAX, ECX, EDX, EBX, ESP, EBP, ESI, EDI)
+
+    mov ax, ds       ; Сохраняем сегмент данных
+    push eax
+
+    mov ax, 0x10     ; Загружаем сегмент данных ядра
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    call isr_handler ; ВЫЗОВ ТВОЕГО СИ-КОДА
+
+    pop eax          ; Восстанавливаем оригинальный сегмент данных
+    mov ds, ax
+    mov es, ax
+    mov fs, ax
+    mov gs, ax
+
+    popa             ; Восстанавливаем регистры
+    add esp, 8       ; Очищаем стек (от номера и кода ошибки)
+    iret             ; ВОЗВРАТ ИЗ ПРЕРЫВАНИЯ - это оживит процессор
