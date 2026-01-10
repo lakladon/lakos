@@ -681,7 +681,9 @@ void shell_handle_key(char c) {
         terminal_writestring("Command processed\n");
         terminal_writestring("LakOS>");
         terminal_writestring(current_user);
-        terminal_writestring(" / ");
+        terminal_writestring(" ");
+        terminal_writestring(current_dir);
+        terminal_writestring(" ");
         shell_ptr = 0;
     } 
     else if (c == '\b') {
@@ -733,7 +735,9 @@ void shell_main() {
     terminal_writestring("Login successful\n");
     terminal_writestring("LakOS>");
     terminal_writestring(current_user);
-    terminal_writestring(" / ");
+    terminal_writestring(" ");
+    terminal_writestring(current_dir);
+    terminal_writestring(" ");
     while(1) {
         if (inb(0x64) & 0x1) {
             uint8_t scancode = inb(0x60);
