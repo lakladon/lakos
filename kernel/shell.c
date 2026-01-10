@@ -1,8 +1,6 @@
 #include <stdint.h>
 #include <io.h>
 
-extern void start_gui();
-
 void strcpy(char* dest, const char* src) {
     while (*src) *dest++ = *src++;
     *dest = '\0';
@@ -100,9 +98,7 @@ void writeUSERterminal(const char* input) {
     else if (strcmp(input, "date") == 0) {
         terminal_writestring("2026-01-10\n");
     }
-    else if (strcmp(input, "intref") == 0) {
-        start_gui();
-    }
+
 
     else {
         terminal_writestring("Error: command '");
@@ -121,8 +117,7 @@ void shell_handle_key(char c) {
             writeUSERterminal(shell_buf);
         }
         
-        terminal_writestring(current_dir);
-        terminal_writestring("> ");
+        terminal_writestring("C:\\> ");
         shell_ptr = 0;
     } 
     else if (c == '\b') {
@@ -141,10 +136,8 @@ void shell_handle_key(char c) {
 
 // ГЛАВНАЯ ФУНКЦИЯ ШЕЛЛА
 void shell_main() {
-    terminal_writestring("\n--- Lakos Shell Started ---\n");
-    terminal_writestring("Type 'intref' to start GUI!\n");
-    terminal_writestring(current_dir);
-    terminal_writestring("> ");
+    terminal_writestring("\nLakos OS\n");
+    terminal_writestring("C:\\> ");
     while(1) {
         if (inb(0x64) & 0x1) {
             uint8_t scancode = inb(0x60);
