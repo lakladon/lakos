@@ -2,7 +2,7 @@
 #include <io.h>
 
 extern void terminal_putchar(char c);
-
+volatile char last_key = 0; // Оставляем как есть
 // Простейшая таблица символов
 unsigned char kbdus[128] = {
     0,  27, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
