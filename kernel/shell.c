@@ -678,7 +678,6 @@ void shell_handle_key(char c) {
             writeUSERterminal(shell_buf);
         }
 
-        terminal_writestring("Command processed\n");
         terminal_writestring("LakOS>");
         terminal_writestring(current_user);
         terminal_writestring(" ");
@@ -712,7 +711,7 @@ void shell_main() {
     terminal_writestring("| |   ___ | |__| . |/ __>\n");
     terminal_writestring("| |_ <_> || / /| | |\\__ \\\n");
     terminal_writestring("|___|<___||_\\_\\`___'<___/\n");
-    terminal_writestring("\nLakos OS\n");
+    terminal_writestring("\nWelcome to Lakos OS\n");
 
     terminal_writestring("Shell initialized, starting login\n");
 
