@@ -35,6 +35,31 @@ unsigned char kbd_map_shift[128] = {
 static int shift_pressed = 0;
 static int caps_locked = 0;
 static char current_dir[256] = "/";
+static char* pathbin = "/bin";
+
+// Simple file system simulation
+typedef struct {
+    char name[32];
+    char content[256];
+    int size;
+} file_t;
+
+file_t files[10];
+int file_count = 0;
+
+char dirs[10][32];
+int dir_count = 3; // bin, dev, home
+
+char home_dirs[10][32];
+int home_dir_count = 0;
+char home_subdirs[10][10][32];
+int home_sub_count[10] = {0};
+
+void init_dirs() {
+    strcpy(dirs[0], "bin");
+    strcpy(dirs[1], "dev");
+    strcpy(dirs[2], "home");
+}
 
 static char shell_buf[256];
 static int shell_ptr = 0;
@@ -45,15 +70,57 @@ int strcmp(const char* s1, const char* s2) {
     return *(const unsigned char*)s1 - *(const unsigned char*)s2;
 }
 
-int is_file(const char* name) {
-    if (strcmp(name, "hello") == 0 || strcmp(name, "test") == 0 || strcmp(name, "editor") == 0) return 1;
+int strlen(const char* s) {
+    int len = 0;
+    while (*s++) len++;
+    return len;
+}
+
+char* strstr(const char* haystack, const char* needle) {
+    if (!*needle) return (char*)haystack;
+    for (; *haystack; haystack++) {
+        const char* h = haystack;
+        const char* n = needle;
+        while (*h && *n && *h == *n) { h++; n++; }
+        if (!*n) return (char*)haystack;
+    }
     return 0;
+}
+
+char* strncat(char* dest, const char* src, int n) {
+    char* d = dest;
+    while (*d) d++;
+    while (n-- && *src) *d++ = *src++;
+    *d = '\0';
+    return dest;
+}
+
+int is_file_in_path(const char* name, const char* path) {
+    if (strcmp(path, "/bin") == 0 && (strcmp(name, "hello") == 0 || strcmp(name, "test") == 0 || strcmp(name, "editor") == 0)) return 1;
+    return 0;
+}
+
+file_t* find_file(const char* name) {
+    for (int i = 0; i < file_count; i++) {
+        if (strcmp(files[i].name, name) == 0) return &files[i];
+    }
+    return 0;
+}
+
+file_t* create_file(const char* name) {
+    if (file_count >= 10) return 0;
+    int len = strlen(name);
+    if (len >= 32) return 0;
+    strcpy(files[file_count].name, name);
+    files[file_count].content[0] = '\0';
+    files[file_count].size = 0;
+    return &files[file_count++];
 }
 
 // Твоя функция поиска команд и бинарников
 void writeUSERterminal(const char* input) {
     if (strcmp(input, "help") == 0) {
-        terminal_writestring("Lakos OS Commands: help, cls, ver, pwd, ls, cd, echo, uname, date, intref\nAvailable programs: hello, test, editor\n");
+        terminal_writestring("Lakos OS Commands: help, cls, ver, pwd, ls, cd, echo, uname, date, cat, mkdir, disks, mount\nAvailable programs: hello, test, editor\n");
     }
     else if (strcmp(input, "cls") == 0) {
         terminal_initialize();
@@ -67,30 +134,64 @@ void writeUSERterminal(const char* input) {
     }
     else if (strcmp(input, "ls") == 0) {
         if (strcmp(current_dir, "/") == 0) {
-            terminal_writestring("bin/  dev/  home/\n");
+            for (int i = 0; i < dir_count; i++) {
+                terminal_writestring(dirs[i]);
+                terminal_writestring("/ ");
+            }
+            terminal_writestring("\n");
         } else if (strcmp(current_dir, "/bin") == 0) {
             terminal_writestring("hello  test  editor\n");
+        } else if (strcmp(current_dir, "/home") == 0) {
+            for (int i = 0; i < home_dir_count; i++) {
+                terminal_writestring(home_dirs[i]);
+                terminal_writestring("/ ");
+            }
+            terminal_writestring("\n");
         } else {
             terminal_writestring(".\n");
         }
     }
     else if (strncmp(input, "cd ", 3) == 0) {
         const char* dir = input + 3;
-        if (strcmp(dir, "/") == 0) {
+        if (strlen(dir) == 0) {
+            strcpy(current_dir, "/home");
+        } else if (strcmp(dir, "/") == 0) {
             strcpy(current_dir, "/");
         } else if (strcmp(dir, "bin") == 0) {
             strcpy(current_dir, "/bin");
+        } else if (strcmp(dir, "home") == 0) {
+            strcpy(current_dir, "/home");
         } else if (strcmp(dir, "..") == 0) {
-            if (strcmp(current_dir, "/") != 0) {
+            if (strcmp(current_dir, "/home") == 0) {
+                strcpy(current_dir, "/");
+            } else if (strcmp(current_dir, "/bin") == 0) {
+                strcpy(current_dir, "/");
+            } else {
                 strcpy(current_dir, "/");
             }
+        } else if (strcmp(current_dir, "/home") == 0) {
+            strcpy(current_dir, "/home/");
+            int remaining = 255 - strlen(current_dir);
+            int dir_len = strlen(dir);
+            if (dir_len > remaining) {
+                terminal_writestring("cd: directory name too long\n");
+            } else {
+                strncat(current_dir, dir, remaining);
+            }
         } else {
-            terminal_writestring("cd: directory not found\n");
+            terminal_writestring("cd: ");
+            terminal_writestring(dir);
+            terminal_writestring(": No such file or directory\n");
         }
     }
 
+    else if (strncmp(input, "echo ", 5) == 0) {
+        const char* args = input + 5;
+        terminal_writestring(args);
+        terminal_writestring("\n");
+    }
     else if (strcmp(input, "echo") == 0) {
-        terminal_writestring("Echo: command executed.\n");
+        terminal_writestring("\n");
     }
     else if (strcmp(input, "uname") == 0) {
         terminal_writestring("Lakos\n");
@@ -98,12 +199,123 @@ void writeUSERterminal(const char* input) {
     else if (strcmp(input, "date") == 0) {
         terminal_writestring("2026-01-10\n");
     }
-
-
-    else {
-        terminal_writestring("Error: command '");
-        terminal_writestring(input);
-        terminal_writestring("' not found.\n");
+    else if (strncmp(input, "cat ", 4) == 0) {
+        const char* filename = input + 4;
+        if (strlen(filename) == 0) {
+            terminal_writestring("cat: missing file name\n");
+        } else {
+            file_t* f = find_file(filename);
+            if (f) {
+                terminal_writestring(f->content);
+            } else {
+                terminal_writestring("cat: ");
+                terminal_writestring(filename);
+                terminal_writestring(": No such file\n");
+            }
+        }
+    }
+    else if (strncmp(input, "mkdir ", 6) == 0) {
+        const char* dirname = input + 6;
+        if (strlen(dirname) == 0) {
+            terminal_writestring("mkdir: missing directory name\n");
+        } else {
+            if (strcmp(current_dir, "/home") == 0) {
+                if (home_dir_count >= 10) {
+                    terminal_writestring("mkdir: too many directories\n");
+                } else {
+                    int len = strlen(dirname);
+                    if (len >= 32) {
+                        terminal_writestring("mkdir: directory name too long\n");
+                    } else {
+                        strcpy(home_dirs[home_dir_count++], dirname);
+                        terminal_writestring("mkdir: created directory '");
+                        terminal_writestring(dirname);
+                        terminal_writestring("'\n");
+                    }
+                }
+            } else if (strncmp(current_dir, "/home/", 6) == 0) {
+                const char* parent = current_dir + 6;
+                int parent_len = 0;
+                while (parent[parent_len] && parent[parent_len] != '/') parent_len++;
+                char parent_name[32];
+                if (parent_len >= 32) parent_len = 31;
+                strncat(parent_name, parent, parent_len);
+                parent_name[parent_len] = '\0';
+                for (int i = 0; i < home_dir_count; i++) {
+                    if (strcmp(home_dirs[i], parent_name) == 0) {
+                        if (home_sub_count[i] >= 10) {
+                            terminal_writestring("mkdir: too many subdirectories\n");
+                        } else {
+                            int len = strlen(dirname);
+                            if (len >= 32) {
+                                terminal_writestring("mkdir: directory name too long\n");
+                            } else {
+                                strcpy(home_subdirs[i][home_sub_count[i]++], dirname);
+                                terminal_writestring("mkdir: created directory '");
+                                terminal_writestring(dirname);
+                                terminal_writestring("'\n");
+                            }
+                        }
+                        return;
+                    }
+                }
+                terminal_writestring("mkdir: parent directory not found\n");
+            } else {
+                terminal_writestring("mkdir: can only create directories in /home\n");
+            }
+        }
+    }
+    else if (strstr(input, " >> ")) {
+        char temp[256];
+        strcpy(temp, input);
+        char* sep = strstr(temp, " >> ");
+        if (sep && strncmp(temp, "echo ", 5) == 0) {
+            *sep = '\0';
+            const char* text = temp + 5;
+            const char* filename = sep + 4;
+            file_t* f = find_file(filename);
+            if (!f) f = create_file(filename);
+            if (f) {
+                int len = strlen(text);
+                if (f->size + len + 1 < 256) {
+                    strcpy(f->content + f->size, text);
+                    f->size += len;
+                    f->content[f->size++] = '\n';
+                    f->content[f->size] = '\0';
+                }
+            }
+        }
+    } else if (strcmp(input, "disks") == 0) {
+        extern int ata_detect_disks();
+        int count = ata_detect_disks();
+        terminal_writestring("Detected disks: ");
+        for (int i = 0; i < count; i++) {
+            terminal_writestring("/dev/hd");
+            terminal_putchar('a' + i);
+            terminal_writestring("1 ");
+        }
+        terminal_writestring("\n");
+    } else if (strncmp(input, "mount ", 6) == 0) {
+        const char* args = input + 6;
+        if (strlen(args) == 0) {
+            terminal_writestring("mount: missing arguments\nUsage: mount <device> <path>\n");
+        } else {
+            terminal_writestring("Mounted ");
+            terminal_writestring(args);
+            terminal_writestring("\n");
+        }
+    } else {
+        if (is_file_in_path(input, pathbin)) {
+            terminal_writestring("Executing ");
+            terminal_writestring(pathbin);
+            terminal_writestring("/");
+            terminal_writestring(input);
+            terminal_writestring("\n");
+        } else {
+            terminal_writestring("Error: command '");
+            terminal_writestring(input);
+            terminal_writestring("' not found.\n");
+        }
     }
 }
 
@@ -136,6 +348,7 @@ void shell_handle_key(char c) {
 
 // ГЛАВНАЯ ФУНКЦИЯ ШЕЛЛА
 void shell_main() {
+    init_dirs();
     terminal_writestring("\nLakos OS\n");
     terminal_writestring("C:\\> ");
     while(1) {

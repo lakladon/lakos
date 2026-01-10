@@ -3,6 +3,7 @@
 
 volatile int mouse_x = 160;
 volatile int mouse_y = 100;
+volatile uint8_t mouse_buttons = 0;
 volatile uint8_t mouse_packet[3];
 volatile int mouse_packet_index = 0;
 
@@ -59,6 +60,7 @@ void mouse_handler() {
     if (mouse_packet_index == 0) {
         // Process packet
         uint8_t flags = mouse_packet[0];
+        mouse_buttons = flags & 7; // bits 0:left, 1:right, 2:middle
         int dx = (int8_t)mouse_packet[1];
         int dy = (int8_t)mouse_packet[2];
         mouse_x += dx;

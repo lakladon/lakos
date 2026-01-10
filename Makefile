@@ -19,18 +19,19 @@ OBJ = \
       kernel/gdt.o \
       kernel/idt.o \
       kernel/isr.o \
-      kernel/drivers/mouse.o \
-      kernel/vga.o \
-      kernel/gui.o \
+      kernel/drivers/ata.o \
       kernel/idt_flush.o \
       kernel/interrupts.o \
       kernel/idt_load.o \
       kernel/gdtflush.o
 
-all: lakos.bin
+all: lakos.bin modules.tar
 
 lakos.bin: $(OBJ)
 	$(LD) $(LDFLAGS) -o $@ $(OBJ)
+
+modules.tar: rootfs/bin/* rootfs/Ctest
+	cd rootfs && tar cf ../$@ *
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
