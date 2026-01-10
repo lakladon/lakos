@@ -1,52 +1,41 @@
-# Настройки компилятора
 CC = i686-elf-gcc
-AS = nasm
+# Если i686-elf-gcc нет, используем обычный gcc с флагами
+ifeq (, $(shell which $(CC)))
+    CC = gcc
+endif
+
 LD = i686-elf-ld
+ifeq (, $(shell which $(LD)))
+    LD = ld
+endif
 
-# Флаги
-# Было:
+AS = nasm
+CFLAGS = -m32 -ffreestanding -O2 -Wall -Wextra -I. -Ikernel/include
+LDFLAGS = -m elf_i386 -T linker.ld
 
-# Стало (добавь -I. и убери лишнее):
-# Добавляем и корень (.), и папку include, и саму папку kernel
-CFLAGS = -m32 -ffreestanding -O2 -Wall -Wextra -I. -Ikernel -Ikernel/include -Ikernel/drivers
-ASFLAGS = -f elf32
-LDFLAGS = -T linker.ld -m elf_i386
+OBJ = boot/boot.o \
+      kernel/kernel.o \
+      kernel/shell.o \
+      kernel/fs/tar.o \
+      kernel/gdt.o \
+      kernel/idt.o \
+      kernel/isr.o \
+      kernel/drivers/keyboard.o \
+      kernel/idt_flush.o \
+      kernel/interrupts.o \
+      kernel/idt_load.o \
+      kernel/gdtflush.o
 
-# Поиск всех исходников
-C_SOURCES = $(shell find kernel -name '*.c')
-ASM_SOURCES = $(shell find kernel -name '*.asm') boot/boot.asm
+all: lakos.bin
 
-# Превращение имен .c и .asm в .o
-OBJ = $(C_SOURCES:.c=.o) $(ASM_SOURCES:.asm=.o)
+lakos.bin: $(OBJ)
+	$(LD) $(LDFLAGS) -o $@ $(OBJ)
 
-# Имя итогового файла
-KERNEL_BIN = lakos.bin
-FS_TAR = modules.tar
-
-all: $(KERNEL_BIN) $(FS_TAR)
-
-# Сборка ядра
-$(KERNEL_BIN): $(OBJ)
-	$(LD) $(LDFLAGS) -o $@ $^
-
-# Компиляция Си-файлов
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Компиляция Ассемблер-файлов
 %.o: %.asm
-	$(AS) $(ASFLAGS) $< -o $@
+	$(AS) -f elf32 $< -o $@
 
-# Создание образа Файловой Системы
-$(FS_TAR):
-	@mkdir -p rootfs/bin
-	# Если есть готовые бинарники, они попадут сюда
-	tar -cvf $(FS_TAR) -C rootfs .
-
-# Очистка проекта
 clean:
-	rm -rf $(OBJ) $(KERNEL_BIN) $(FS_TAR)
-
-# Запуск в QEMU
-run: all
-	qemu-system-i386 -kernel $(KERNEL_BIN) -initrd $(FS_TAR)
+	rm -f $(OBJ) lakos.bin
