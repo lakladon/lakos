@@ -21,6 +21,7 @@ struct idt_ptr idtp;
 // Эти функции мы объявим в ассемблере
 extern void idt_load();
 extern void irq1(); // Обработчик клавиатуры
+extern void irq12(); // Обработчик мыши
 
 void idt_set_gate(uint8_t num, uint32_t base, uint16_t sel, uint8_t flags) {
     idt[num].base_low = (base & 0xFFFF);
@@ -55,12 +56,14 @@ void irq_install() {
     // Режим 8086 (ICW4)
     outb(0x21, 0x01);
     outb(0xA1, 0x01);
-    // Маски прерываний (включаем только клавиатуру IRQ1)
+    // Маски прерываний (включаем клавиатуру IRQ1 и мышь IRQ12)
     outb(0x21, 0xFD); // 0xFD = 11111101 (бит 1 включен)
-    outb(0xA1, 0xFF);
+    outb(0xA1, 0xEF); // 0xEF = 11101111 (бит 4 включен для IRQ12)
 
     // Регистрируем обработчик клавиатуры на вектор 33
     idt_set_gate(33, (uint32_t)irq1, 0x08, 0x8E);
+    // Регистрируем обработчик мыши на вектор 44
+    idt_set_gate(44, (uint32_t)irq12, 0x08, 0x8E);
 }
 
 // Заглушка, чтобы не было ошибки undefined reference

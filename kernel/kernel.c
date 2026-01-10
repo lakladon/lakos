@@ -24,6 +24,7 @@ void terminal_writestring(const char* s) {
 void init_gdt();
 void idt_init();
 void irq_install();
+extern void mouse_install();
 extern void shell_main();
 
 void kmain(multiboot_info_t* mb_info, uint32_t magic) {
@@ -31,6 +32,7 @@ void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     init_gdt();
     idt_init();
     irq_install();
+    mouse_install();
 
     terminal_writestring("Lakos OS v0.3 Booted!\n");
 

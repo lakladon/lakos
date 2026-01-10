@@ -1,10 +1,17 @@
 [extern isr_handler]
 [global irq1]
+[global irq12]
 
 irq1:
     cli             ; Выключаем прерывания
     push byte 0     ; Ошибка (заглушка)
     push byte 33    ; Номер прерывания (32 + 1)
+    jmp irq_common_stub
+
+irq12:
+    cli
+    push byte 0
+    push byte 44    ; 32 + 12
     jmp irq_common_stub
 
 irq_common_stub:

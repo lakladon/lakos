@@ -2,6 +2,7 @@
 #include <io.h>
 
 extern void terminal_putchar(char c);
+extern void mouse_handler();
 
 // ОПРЕДЕЛЯЕМ переменную один раз
 volatile char last_key = 0; 
@@ -15,11 +16,15 @@ unsigned char kbdus[128] = {
 
 void isr_handler(uint32_t int_no) {
     if (int_no == 33) {
-        uint8_t scancode = inb(0x60); 
+        uint8_t scancode = inb(0x60);
         if (!(scancode & 0x80)) {
             last_key = kbdus[scancode];
             if (last_key != 0) terminal_putchar(last_key);
         }
+    }
+
+    if (int_no == 44) {
+        mouse_handler();
     }
 
     if (int_no >= 40) outb(0xA0, 0x20);

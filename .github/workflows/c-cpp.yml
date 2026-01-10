@@ -32,7 +32,7 @@ jobs:
           tag_name: "run-${{ github.run_number }}"
           name: "Lakos OS Build #${{ github.run_number }}"
           body: |
-            Это автоматическая сборка из Workflow Run №${{ github.run_number }}.
+            Это автоматическая сборка №${{ github.run_number }}.
             Системный ID запуска: ${{ github.run_id }}
           files: lakos.bin
           draft: false
