@@ -2,6 +2,13 @@
 #include <stdint.h>
 #include <stddef.h>
 
+// Multiboot header
+const multiboot_header_t __attribute__((section(".multiboot"))) header = {
+    .magic = MULTIBOOT_HEADER_MAGIC,
+    .flags = 0,
+    .checksum = -(MULTIBOOT_HEADER_MAGIC + 0)
+};
+
 // --- РЕАЛИЗАЦИЯ ФУНКЦИЙ ЭКРАНА ---
 uint16_t* vga_buffer = (uint16_t*)0xB8000;
 int term_col = 0;

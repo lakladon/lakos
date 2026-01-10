@@ -15,6 +15,17 @@ struct multiboot_module {
 };
 typedef struct multiboot_module multiboot_module_t;
 
+struct multiboot_header {
+    uint32_t magic;
+    uint32_t flags;
+    uint32_t checksum;
+    uint32_t header_addr;
+    uint32_t load_addr;
+    uint32_t load_end_addr;
+    uint32_t bss_end_addr;
+    uint32_t entry_addr;
+};
+
 struct multiboot_info {
     uint32_t flags;
     uint32_t mem_lower;
@@ -38,6 +49,7 @@ struct multiboot_info {
     uint16_t vbe_interface_off;
     uint16_t vbe_interface_len;
 };
+typedef struct multiboot_header multiboot_header_t;
 typedef struct multiboot_info multiboot_info_t;
 
 #endif
