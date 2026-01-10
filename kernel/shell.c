@@ -1,6 +1,19 @@
 #include <stdint.h>
 #include <io.h>
 
+void strcpy(char* dest, const char* src) {
+    while (*src) *dest++ = *src++;
+    *dest = '\0';
+}
+
+int strncmp(const char* s1, const char* s2, unsigned int n) {
+    while (n && *s1 && (*s1 == *s2)) {
+        s1++; s2++; n--;
+    }
+    if (n == 0) return 0;
+    return *(const unsigned char*)s1 - *(const unsigned char*)s2;
+}
+
 extern void terminal_writestring(const char* s);
 extern void terminal_putchar(char c);
 extern void terminal_initialize();
@@ -20,6 +33,8 @@ unsigned char kbd_map_shift[128] = {
 };
 
 static int shift_pressed = 0;
+static int caps_locked = 0;
+static char current_dir[256] = "/";
 
 static char shell_buf[256];
 static int shell_ptr = 0;
@@ -30,23 +45,60 @@ int strcmp(const char* s1, const char* s2) {
     return *(const unsigned char*)s1 - *(const unsigned char*)s2;
 }
 
+int is_file(const char* name) {
+    if (strcmp(name, "hello") == 0 || strcmp(name, "test") == 0 || strcmp(name, "editor") == 0) return 1;
+    return 0;
+}
+
 // Твоя функция поиска команд и бинарников
 void writeUSERterminal(const char* input) {
     if (strcmp(input, "help") == 0) {
-        terminal_writestring("Lakos OS Commands: help, cls, ver, ls, bin/test\n");
-    } 
+        terminal_writestring("Lakos OS Commands: help, cls, ver, pwd, ls, cd, echo, uname, date\nAvailable programs: hello, test, editor\n");
+    }
     else if (strcmp(input, "cls") == 0) {
         terminal_initialize();
-    } 
+    }
     else if (strcmp(input, "ver") == 0) {
         terminal_writestring("Lakos OS v0.3.7 [Kernel Mode]\n");
     }
+    else if (strcmp(input, "pwd") == 0) {
+        terminal_writestring(current_dir);
+        terminal_writestring("\n");
+    }
     else if (strcmp(input, "ls") == 0) {
-        terminal_writestring("bin/  dev/  home/\n");
+        if (strcmp(current_dir, "/") == 0) {
+            terminal_writestring("bin/  dev/  home/\n");
+        } else if (strcmp(current_dir, "/bin") == 0) {
+            terminal_writestring("hello  test  editor\n");
+        } else {
+            terminal_writestring(".\n");
+        }
     }
-    else if (strcmp(input, "bin/test") == 0) {
-        terminal_writestring("Running binary from virtual /bin/...\nDone.\n");
+    else if (strncmp(input, "cd ", 3) == 0) {
+        const char* dir = input + 3;
+        if (strcmp(dir, "/") == 0) {
+            strcpy(current_dir, "/");
+        } else if (strcmp(dir, "bin") == 0) {
+            strcpy(current_dir, "/bin");
+        } else if (strcmp(dir, "..") == 0) {
+            if (strcmp(current_dir, "/") != 0) {
+                strcpy(current_dir, "/");
+            }
+        } else {
+            terminal_writestring("cd: directory not found\n");
+        }
     }
+
+    else if (strcmp(input, "echo") == 0) {
+        terminal_writestring("Echo: command executed.\n");
+    }
+    else if (strcmp(input, "uname") == 0) {
+        terminal_writestring("Lakos\n");
+    }
+    else if (strcmp(input, "date") == 0) {
+        terminal_writestring("2026-01-10\n");
+    }
+
     else {
         terminal_writestring("Error: command '");
         terminal_writestring(input);
@@ -64,7 +116,8 @@ void shell_handle_key(char c) {
             writeUSERterminal(shell_buf);
         }
         
-        terminal_writestring("Lakos> ");
+        terminal_writestring(current_dir);
+        terminal_writestring("> ");
         shell_ptr = 0;
     } 
     else if (c == '\b') {
@@ -83,14 +136,20 @@ void shell_handle_key(char c) {
 
 // ГЛАВНАЯ ФУНКЦИЯ ШЕЛЛА
 void shell_main() {
-    terminal_writestring("\n--- Lakos Shell Started ---\nLakos> ");
+    terminal_writestring("\n--- Lakos Shell Started ---\n");
+    terminal_writestring(current_dir);
+    terminal_writestring("> ");
     while(1) {
         if (inb(0x64) & 0x1) {
             uint8_t scancode = inb(0x60);
             if (scancode == 42 || scancode == 54) {
                 shift_pressed = !(scancode & 0x80);
+            } else if (scancode == 58) {
+                if (!(scancode & 0x80)) caps_locked = !caps_locked;
             } else if (!(scancode & 0x80)) {
-                char c = shift_pressed ? kbd_map_shift[scancode] : kbd_map[scancode];
+                int is_letter = (scancode >= 16 && scancode <= 25) || (scancode >= 30 && scancode <= 38) || (scancode >= 44 && scancode <= 50);
+                int uppercase = shift_pressed || (caps_locked && is_letter);
+                char c = uppercase ? kbd_map_shift[scancode] : kbd_map[scancode];
                 if (c != 0) shell_handle_key(c);
             }
         }
