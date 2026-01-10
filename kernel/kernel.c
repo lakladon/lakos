@@ -79,9 +79,14 @@ extern void shell_main();
 extern void* find_file(void* tar_start, const char* filename);
 
 void* initrd_location = NULL;
-
 void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     init_gdt();
+    
+    // ДОБАВЬ ЭТИ ТРИ СТРОКИ:
+    idt_init();       // Инициализация таблицы IDT
+    isrs_install();   // Установка обработчиков исключений
+    irq_install();    // Ремаппинг PIC и установка обработчиков IRQ (вкл. клавиатуру)
+
     terminal_initialize();
 
     terminal_setcolor(0x0B);
@@ -92,6 +97,19 @@ void kmain(multiboot_info_t* mb_info, uint32_t magic) {
         terminal_writestring("Error: Invalid Multiboot magic number.\n");
         return;
     }
+
+    // ... остальная инициализация (память, модули) ...
+
+    terminal_writestring("GDT loaded. Memory mapped. Entering Shell...\n\nLakos> ");
+
+    // САМОЕ ВАЖНОЕ: Включаем прерывания на уровне процессора
+    asm volatile("sti");
+
+    while(1) {
+        // Здесь твой основной цикл шелла
+        // Если шелл работает через прерывания, он будет ждать ввода
+    }
+}
 
     if (mb_info->flags & (1 << 3)) { 
         if (mb_info->mods_count > 0) {
