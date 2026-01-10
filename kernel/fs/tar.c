@@ -1,7 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-// Твоя структура заголовка
 struct tar_header {
     char name[100];
     char mode[8];

@@ -1,20 +1,38 @@
 #include <stdint.h>
-#include "idt.h"      // Убери include/
-#include <io.h>    // Если используешь порты (inb/outb)
-extern void terminal_writestring(const char* data);
-struct registers {
-    uint32_t ds;                  // Data segment selector
-    uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax; // Pushed by pusha.
-    uint32_t int_no, err_code;    // Interrupt number and error code (if applicable)
-    uint32_t eip, cs, eflags, useresp, ss; // Pushed by the processor automatically.
+#include <io.h>  
+
+// Внешние функции для вывода текста (зависит от твоего имен в ядре)
+extern void printf(const char* str);
+extern void terminal_putchar(char c);
+
+// Таблица скан-кодов (упрощенная раскладка US QWERTY)
+unsigned char kbdus[128] = {
+    0,  27, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
+    '\t', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n',
+    0, 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', 0,
+    '\\', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 0, '*', 0, ' ', 0
 };
 
-void isr_handler(struct registers regs) {
-    // Здесь можно обработать прерывание, например, вывести сообщение на экран
-    // или записать информацию в лог.
-    terminal_writestring("Received interrupt: ");
-    if (regs.int_no < 32) {
-        terminal_writestring("Exception\n");
-        for(;;); // Остановить систему для исключений
+// Главный обработчик прерываний
+void isr_handler(uint32_t int_no) {
+    // Обработка прерывания от клавиатуры (IRQ1 -> обычно вектор 33 после ремапа PIC)
+    if (int_no == 33) {
+        uint8_t scancode = inb(0x60); // Читаем скан-код из порта клавиатуры
+
+        // Если седьмой бит не установлен (нажатие клавиши, а не отпускание)
+        if (!(scancode & 0x80)) {
+            char c = kbdus[scancode];
+            if (c != 0) {
+                terminal_putchar(c); // Печатаем символ на экран
+            }
+        }
     }
+
+    // ВАЖНО: Отправляем EOI (End of Interrupt) контроллерам PIC
+    // Если прерывание пришло от ведомого контроллера (IRQ 8-15), шлем обоим
+    if (int_no >= 40) {
+        outb(0xA0, 0x20);
+    }
+    // В любом случае шлем основному контроллеру
+    outb(0x20, 0x20);
 }
