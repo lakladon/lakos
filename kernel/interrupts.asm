@@ -1,24 +1,33 @@
-; Исправленный фрагмент kernel/interrupts.asm
-[BITS 32]
-extern isr_handler    ; Исправлено с heandler на handler
+[extern isr_handler]
+[global irq1]
 
-isr_common_stub:
-    pusha
-    mov ax, ds
+irq1:
+    cli             ; Выключаем прерывания
+    push byte 0     ; Ошибка (заглушка)
+    push byte 33    ; Номер прерывания (32 + 1)
+    jmp irq_common_stub
+
+irq_common_stub:
+    pushad          ; Сохраняем EAX, ECX, EDX...
+    
+    mov ax, ds      ; Сохраняем сегмент данных
     push eax
-    mov ax, 0x10
+
+    mov ax, 0x10    ; Загружаем сегмент данных ядра
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
-    
-    call isr_handler  ; Исправлено с heandler на handler
-    
-    pop eax
+
+    call isr_handler ; Вызов Си-функции из kernel/isr.c
+
+    pop eax         ; Восстанавливаем сегменты
     mov ds, ax
     mov es, ax
     mov fs, ax
     mov gs, ax
-    popa
-    add esp, 8
-    iret
+
+    popad           ; Восстанавливаем регистры
+    add esp, 8      ; Очищаем стек от номера прерывания и ошибки
+    sti
+    iret            ; Возврат из прерывания!
