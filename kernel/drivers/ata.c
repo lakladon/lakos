@@ -27,8 +27,10 @@ static inline void outw(uint16_t port, uint16_t val) {
 #define ATA_CMD_WRITE 0x30
 #define ATA_CMD_IDENTIFY 0xEC
 
-void ata_wait() {
-    while (inb(ATA_STATUS) & 0x80); // Wait for BSY to clear
+int ata_wait() {
+    int timeout = 100000;
+    while ((inb(ATA_STATUS) & 0x80) && timeout--); // Wait for BSY to clear with timeout
+    return timeout > 0;
 }
 
 void ata_select_drive(uint8_t drive) {
@@ -46,7 +48,9 @@ int ata_identify(uint8_t drive) {
     uint8_t status = inb(ATA_STATUS);
     if (status == 0) return 0; // No drive
 
-    ata_wait();
+    if (!ata_wait()) return 0; // Timeout
+    status = inb(ATA_STATUS);
+    if (status & 0x01) return 0; // ERR bit set
     // Read identify data (not implemented fully)
     return 1;
 }
@@ -59,7 +63,7 @@ void ata_read_sector(uint8_t drive, uint32_t lba, uint16_t* buffer) {
     outb(ATA_LBA_HIGH, (lba >> 16) & 0xFF);
     outb(ATA_COMMAND, ATA_CMD_READ);
 
-    ata_wait();
+    if (!ata_wait()) return; // Timeout, don't read
     for (int i = 0; i < 256; i++) {
         buffer[i] = inw(ATA_DATA);
     }
@@ -73,7 +77,7 @@ void ata_write_sector(uint8_t drive, uint32_t lba, uint16_t* buffer) {
     outb(ATA_LBA_HIGH, (lba >> 16) & 0xFF);
     outb(ATA_COMMAND, ATA_CMD_WRITE);
 
-    ata_wait();
+    if (!ata_wait()) return; // Timeout, don't write
     for (int i = 0; i < 256; i++) {
         outw(ATA_DATA, buffer[i]);
     }

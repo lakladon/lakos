@@ -15,9 +15,7 @@ const multiboot_header_t __attribute__((section(".multiboot"))) header = {
     .checksum = -(MULTIBOOT_HEADER_MAGIC + 0)
 };
 
-void _start() {
-    kmain(0, 0);
-}
+
 
 // Text mode terminal
 #define VIDEO_MEMORY 0xB8000
@@ -45,7 +43,7 @@ void terminal_initialize() {
         video_memory[i] = (uint16_t)' ' | (uint16_t)0x0F << 8; // white on black
     }
     // Set cursor position (optional, but for completeness)
-    update_cursor(0, 0);
+    // update_cursor(0, 0);
 }
 
 void terminal_putchar(char c) {
@@ -79,7 +77,7 @@ void terminal_putchar(char c) {
         term_row = VGA_HEIGHT - 1;
     }
 
-    update_cursor(term_col, term_row);
+    // update_cursor(term_col, term_row);
 }
 
 void terminal_writestring(const char* s) {
@@ -94,6 +92,8 @@ extern void ata_init();
 extern int ata_detect_disks();
 extern void shell_main();
 
+void* tar_archive = 0;
+
 // Set VGA text mode (80x25)
 void vga_set_text_mode() {
     __asm__ volatile("mov $0x03, %%ah; int $0x10" : : : "ah"); // BIOS set mode 3
@@ -101,18 +101,30 @@ void vga_set_text_mode() {
 
 void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     terminal_initialize();
-    init_gdt();
-    idt_init();
-    irq_install();
-    ata_init();
 
-    int disk_count = ata_detect_disks();
-    terminal_writestring("Lakos OS v0.3 Booted! Disks: ");
-    // simple print
-    terminal_putchar('0' + disk_count);
-    terminal_writestring("\n");
+    // Set tar_archive from multiboot modules
+    if (mb_info && (mb_info->flags & (1 << 3)) && mb_info->mods_count > 0) {
+        multiboot_module_t* mods = (multiboot_module_t*)mb_info->mods_addr;
+        tar_archive = (void*)mods[0].mod_start;
+    } else {
+        tar_archive = (void*)0x1000000; // fallback
+    }
+
+    terminal_writestring("Init start\n");
+    init_gdt();
+    terminal_writestring("GDT done\n");
+    idt_init();
+    terminal_writestring("IDT done\n");
+    irq_install();
+    terminal_writestring("IRQ done\n");
+    // ata_init();
+    terminal_writestring("ATA skipped\n");
+
+    // int disk_count = ata_detect_disks();
+    terminal_writestring("Lakos OS v0.3 Booted! Disks: 0\n");
 
     __asm__ volatile("sti");
+    terminal_writestring("Before shell\n");
     shell_main();
 
     while(1) { __asm__ volatile("hlt"); }
