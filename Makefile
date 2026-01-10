@@ -12,7 +12,7 @@ endif
 AS = nasm
 CFLAGS = -m32 -ffreestanding -O2 -Wall -Wextra -I. -Ikernel -Ikernel/include -Ikernel/drivers
 LDFLAGS = -m elf_i386 -T linker.ld
-OBJ = boot/boot.o \
+OBJ = \
       kernel/kernel.o \
       kernel/shell.o \
       kernel/fs/tar.o \
