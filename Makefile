@@ -19,7 +19,6 @@ OBJ = boot/boot.o \
       kernel/gdt.o \
       kernel/idt.o \
       kernel/isr.o \
-      kernel/drivers/keyboard.o \
       kernel/drivers/mouse.o \
       kernel/vga.o \
       kernel/gui.o \
