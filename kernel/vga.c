@@ -1,5 +1,7 @@
 #include <stdint.h>
 
+int abs(int x) { return x < 0 ? -x : x; }
+
 // VGA registers
 #define VGA_MISC_WRITE 0x3C2
 #define VGA_SEQ_INDEX 0x3C4
