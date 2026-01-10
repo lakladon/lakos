@@ -13,7 +13,7 @@ void gui_init() {
     vga_clear_screen(1); // blue
     // Taskbar at bottom
     vga_fill_rectangle(0, 180, 320, 20, 7); // gray
-    vga_draw_text(10, 185, "Lakos GUI", 0); // black
+    vga_draw_text(10, 185, "LAKOS GUI", 0); // black
 }
 
 void gui_draw_cursor() {
@@ -28,6 +28,8 @@ void gui_main() {
         vga_fill_rectangle(mouse_x, mouse_y, 5, 5, 1); // redraw background
         // Draw new cursor
         gui_draw_cursor();
+        // Redraw text to ensure it's visible
+        vga_draw_text(10, 185, "LAKOS GUI", 0); // black
         // Handle input, but for now loop
         __asm__ volatile("hlt");
     }
