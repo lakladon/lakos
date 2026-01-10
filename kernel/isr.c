@@ -19,11 +19,12 @@ void isr_handler(uint32_t int_no) {
         uint8_t scancode = inb(0x60); 
 
         // Проверяем, что это нажатие (а не отпускание клавиши — бит 7 не установлен)
-        if (!(scancode & 0x80)) {
+        if (!(scancode & 0x80)) { 
+    // Только здесь обрабатываем символ
             char c = kbdus[scancode];
-            if (c != 0) {
-                terminal_putchar(c);
-            }
+            terminal_putchar(c); 
+        }
+// EOI (outb 0x20, 0x20) должен быть ВНЕ этого if!
         }
     }
 

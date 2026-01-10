@@ -50,11 +50,17 @@ void shell_feed_char(char c) {
         }
     }
 }
+volatile char last_char = 0; // обновляется в isr_handler
 
 void shell_main() {
-    terminal_writestring("Lakos> ");
     while(1) {
-        __asm__("hlt");
+        terminal_writestring("Lakos> ");
+        // Ждем, пока last_char не станет '\n'
+        while(last_char != '\n') {
+            asm volatile("hlt"); // Спим до следующего прерывания
+        }
+        last_char = 0; // Сбрасываем
+        // Тут логика обработки команды
     }
 }
 // Добавь в конец kernel/shell.c
