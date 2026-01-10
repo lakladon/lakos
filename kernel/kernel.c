@@ -13,19 +13,17 @@ void _start() {
     kmain(0, 0);
 }
 
-// --- РЕАЛИЗАЦИЯ ФУНКЦИЙ ЭКРАНА ---
-uint16_t* vga_buffer = (uint16_t*)0xB8000;
+// Graphical terminal
+extern void vga_clear_screen(uint8_t color);
+extern void vga_draw_char(int x, int y, char c, uint8_t color);
+
 int term_col = 0;
 int term_row = 0;
 
 void terminal_initialize() {
     term_col = 0;
     term_row = 0;
-    for (int y = 0; y < 25; y++) {
-        for (int x = 0; x < 80; x++) {
-            vga_buffer[y * 80 + x] = (uint16_t)' ' | (uint16_t)0x07 << 8;
-        }
-    }
+    vga_clear_screen(0); // black background
 }
 
 void terminal_putchar(char c) {
@@ -35,30 +33,21 @@ void terminal_putchar(char c) {
     } else if (c == '\b') {
         if (term_col > 0) {
             term_col--;
-            vga_buffer[term_row * 80 + term_col] = (uint16_t)' ' | (uint16_t)0x07 << 8;
+            vga_draw_char(term_col * 8, term_row * 8, ' ', 0);
         }
     } else {
-        vga_buffer[term_row * 80 + term_col] = (uint16_t)c | (uint16_t)0x07 << 8;
+        vga_draw_char(term_col * 8, term_row * 8, c, 15); // white
         term_col++;
     }
 
-    if (term_col >= 80) {
+    if (term_col >= 40) { // 320 / 8 = 40 chars per line
         term_col = 0;
         term_row++;
     }
 
-    if (term_row >= 25) {
-        // Scroll up
-        for (int y = 1; y < 25; y++) {
-            for (int x = 0; x < 80; x++) {
-                vga_buffer[(y-1)*80 + x] = vga_buffer[y*80 + x];
-            }
-        }
-        // Clear last line
-        for (int x = 0; x < 80; x++) {
-            vga_buffer[24*80 + x] = (uint16_t)' ' | (uint16_t)0x07 << 8;
-        }
-        term_row = 24;
+    if (term_row >= 25) { // scroll, but for simplicity, reset
+        term_row = 0;
+        vga_clear_screen(0);
     }
 }
 
@@ -71,9 +60,11 @@ void init_gdt();
 void idt_init();
 void irq_install();
 extern void mouse_install();
+extern void vga_set_mode_13h();
 extern void shell_main();
 
 void kmain(multiboot_info_t* mb_info, uint32_t magic) {
+    vga_set_mode_13h();
     terminal_initialize();
     init_gdt();
     idt_init();
