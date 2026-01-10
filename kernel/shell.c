@@ -147,6 +147,25 @@ void writeUSERterminal(const char* input) {
                 terminal_writestring("/ ");
             }
             terminal_writestring("\n");
+        } else if (strncmp(current_dir, "/home/", 6) == 0) {
+            const char* dir = current_dir + 6;
+            int dir_len = 0;
+            while (dir[dir_len] && dir[dir_len] != '/') dir_len++;
+            char dir_name[32];
+            if (dir_len >= 32) dir_len = 31;
+            strncat(dir_name, dir, dir_len);
+            dir_name[dir_len] = '\0';
+            for (int i = 0; i < home_dir_count; i++) {
+                if (strcmp(home_dirs[i], dir_name) == 0) {
+                    for (int j = 0; j < home_sub_count[i]; j++) {
+                        terminal_writestring(home_subdirs[i][j]);
+                        terminal_writestring("/ ");
+                    }
+                    terminal_writestring("\n");
+                    return;
+                }
+            }
+            terminal_writestring(".\n");
         } else {
             terminal_writestring(".\n");
         }
@@ -162,10 +181,18 @@ void writeUSERterminal(const char* input) {
         } else if (strcmp(dir, "home") == 0) {
             strcpy(current_dir, "/home");
         } else if (strcmp(dir, "..") == 0) {
-            if (strcmp(current_dir, "/home") == 0) {
+            if (strcmp(current_dir, "/") == 0) {
+                // stay
+            } else if (strcmp(current_dir, "/home") == 0 || strcmp(current_dir, "/bin") == 0) {
                 strcpy(current_dir, "/");
-            } else if (strcmp(current_dir, "/bin") == 0) {
-                strcpy(current_dir, "/");
+            } else if (strncmp(current_dir, "/home/", 6) == 0) {
+                char* last_slash = current_dir + strlen(current_dir);
+                while (last_slash > current_dir && *last_slash != '/') last_slash--;
+                if (last_slash > current_dir + 5) {
+                    *last_slash = '\0';
+                } else {
+                    strcpy(current_dir, "/home");
+                }
             } else {
                 strcpy(current_dir, "/");
             }
@@ -177,6 +204,33 @@ void writeUSERterminal(const char* input) {
                 terminal_writestring("cd: directory name too long\n");
             } else {
                 strncat(current_dir, dir, remaining);
+            }
+        } else if (strncmp(current_dir, "/home/", 6) == 0) {
+            const char* parent = current_dir + 6;
+            int parent_len = 0;
+            while (parent[parent_len] && parent[parent_len] != '/') parent_len++;
+            char parent_name[32];
+            if (parent_len >= 32) parent_len = 31;
+            strncat(parent_name, parent, parent_len);
+            parent_name[parent_len] = '\0';
+            int found = 0;
+            for (int i = 0; i < home_dir_count; i++) {
+                if (strcmp(home_dirs[i], parent_name) == 0) {
+                    for (int j = 0; j < home_sub_count[i]; j++) {
+                        if (strcmp(home_subdirs[i][j], dir) == 0) {
+                            strncat(current_dir, "/", 255 - strlen(current_dir));
+                            strncat(current_dir, dir, 255 - strlen(current_dir));
+                            found = 1;
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+            if (!found) {
+                terminal_writestring("cd: ");
+                terminal_writestring(dir);
+                terminal_writestring(": No such file or directory\n");
             }
         } else {
             terminal_writestring("cd: ");
