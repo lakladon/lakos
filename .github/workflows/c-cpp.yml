@@ -29,13 +29,12 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           # github.run_number — это и есть номер запуска (1, 2, 3...)
-          tag_name: "run-${{ github.run_number }}"
+          tag_name: "LKB-${{ github.run_number }}"
           name: "Lakos OS Build #${{ github.run_number }}"
           body: |
             Это автоматическая сборка №${{ github.run_number }}.
             Системный ID запуска: ${{ github.run_id }}
-          files: lakos.bin
-          files: lakos.iso
+          files: lakos.bin, lakos.iso
           draft: false
           prerelease: false
         env:
