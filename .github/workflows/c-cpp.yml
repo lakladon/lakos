@@ -21,8 +21,8 @@ jobs:
           sudo ln -s /usr/bin/gcc /usr/bin/i686-elf-gcc
           sudo ln -s /usr/bin/ld /usr/bin/i686-elf-ld
 
-      - name: Build Kernel
-        run: make
+      - name: Build Kernel and iso
+        run: make iso
 
       # Создание релиза с номером текущего Workflow Run
       - name: Create Release
@@ -35,6 +35,7 @@ jobs:
             Это автоматическая сборка №${{ github.run_number }}.
             Системный ID запуска: ${{ github.run_id }}
           files: lakos.bin
+          files: lakos.iso
           draft: false
           prerelease: false
         env:
