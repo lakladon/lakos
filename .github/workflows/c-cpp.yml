@@ -17,7 +17,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-multilib nasm make binutils binutils-i686-linux-gnu grub xorriso
+          sudo apt-get install -y binutils gcc nasm grub-common xorriso
           sudo ln -s /usr/bin/gcc /usr/bin/i686-elf-gcc
           sudo ln -s /usr/bin/ld /usr/bin/i686-elf-ld
 
