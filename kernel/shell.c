@@ -46,14 +46,14 @@ int strcmp(const char* s1, const char* s2) {
 }
 
 int is_file(const char* name) {
-    if (strcmp(name, "hello") == 0 || strcmp(name, "test") == 0 || strcmp(name, "editor") == 0) return 1;
+    if (strcmp(name, "hello") == 0 || strcmp(name, "test") == 0 || strcmp(name, "editor") == 0 || strcmp(name, "calc") == 0) return 1;
     return 0;
 }
 
 // Твоя функция поиска команд и бинарников
 void writeUSERterminal(const char* input) {
     if (strcmp(input, "help") == 0) {
-        terminal_writestring("Lakos OS Commands: help, cls, ver, pwd, ls, cd, echo, uname, date, intref\nAvailable programs: hello, test, editor\n");
+        terminal_writestring("Lakos OS Commands: help, cls, ver, pwd, ls, cd, echo, uname, date, intref\nAvailable programs: hello, test, editor, calc\n");
     }
     else if (strcmp(input, "cls") == 0) {
         terminal_initialize();
@@ -69,7 +69,7 @@ void writeUSERterminal(const char* input) {
         if (strcmp(current_dir, "/") == 0) {
             terminal_writestring("bin/  dev/  home/\n");
         } else if (strcmp(current_dir, "/bin") == 0) {
-            terminal_writestring("hello  test  editor\n");
+            terminal_writestring("hello  test  editor  calc\n");
         } else {
             terminal_writestring(".\n");
         }
@@ -98,7 +98,9 @@ void writeUSERterminal(const char* input) {
     else if (strcmp(input, "date") == 0) {
         terminal_writestring("2026-01-10\n");
     }
-
+    else if (strcmp(input, "calc") == 0) {
+        terminal_writestring("Simple Calculator: 2 + 2 = 4\n");
+    }
 
     else {
         terminal_writestring("Error: command '");
