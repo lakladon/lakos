@@ -26,6 +26,7 @@ uint16_t* video_memory = (uint16_t*)VIDEO_MEMORY;
 
 int term_col = 0;
 int term_row = 0;
+uint8_t current_attr = 0x0F; // white on black
 
 void update_cursor(int x, int y) {
     uint16_t pos = y * VGA_WIDTH + x;
@@ -53,10 +54,10 @@ void terminal_putchar(char c) {
     } else if (c == '\b') {
         if (term_col > 0) {
             term_col--;
-            video_memory[term_row * VGA_WIDTH + term_col] = (uint16_t)' ' | (uint16_t)0x0F << 8;
+            video_memory[term_row * VGA_WIDTH + term_col] = (uint16_t)' ' | (uint16_t)current_attr << 8;
         }
     } else {
-        video_memory[term_row * VGA_WIDTH + term_col] = (uint16_t)c | (uint16_t)0x0F << 8; // white text
+        video_memory[term_row * VGA_WIDTH + term_col] = (uint16_t)c | (uint16_t)current_attr << 8;
         term_col++;
     }
 
@@ -72,7 +73,7 @@ void terminal_putchar(char c) {
         }
         // Clear last line
         for (int i = (VGA_HEIGHT - 1) * VGA_WIDTH; i < VGA_HEIGHT * VGA_WIDTH; i++) {
-            video_memory[i] = (uint16_t)' ' | (uint16_t)0x0F << 8;
+            video_memory[i] = (uint16_t)' ' | (uint16_t)current_attr << 8;
         }
         term_row = VGA_HEIGHT - 1;
     }
@@ -80,8 +81,55 @@ void terminal_putchar(char c) {
     // update_cursor(term_col, term_row);
 }
 
+void itoa(int n, char* buf) {
+    if (n == 0) {
+        buf[0] = '0';
+        buf[1] = '\0';
+        return;
+    }
+    int i = 0;
+    int sign = n < 0 ? -1 : 1;
+    n = n < 0 ? -n : n;
+    while (n > 0) {
+        buf[i++] = '0' + n % 10;
+        n /= 10;
+    }
+    if (sign < 0) buf[i++] = '-';
+    buf[i] = '\0';
+    // reverse
+    for (int j = 0; j < i/2; j++) {
+        char t = buf[j];
+        buf[j] = buf[i-1-j];
+        buf[i-1-j] = t;
+    }
+}
+
 void terminal_writestring(const char* s) {
-    for (int i = 0; s[i] != '\0'; i++) terminal_putchar(s[i]);
+    while (*s) {
+        if (*s == '\033' && *(s+1) == '[') {
+            s += 2;
+            int code = 0;
+            while (*s >= '0' && *s <= '9') {
+                code = code * 10 + (*s - '0');
+                s++;
+            }
+            if (*s == 'm') {
+                s++;
+                if (code == 0) current_attr = 0x0F; // reset to white
+                else if (code == 31) current_attr = 0x04; // red fg
+                else if (code == 32) current_attr = 0x02; // green fg
+                else if (code == 33) current_attr = 0x0E; // yellow fg
+                else if (code == 36) current_attr = 0x03; // cyan fg
+            } else {
+                // invalid, skip
+                while (*s && *s != 'm') s++;
+                if (*s == 'm') s++;
+            }
+        } else {
+            terminal_putchar(*s);
+            s++;
+        }
+    }
 }
 
 // Прототипы
@@ -90,6 +138,7 @@ void idt_init();
 void irq_install();
 extern void ata_init();
 extern int ata_detect_disks();
+extern void ata_read_sectors(uint8_t drive, uint32_t lba, uint16_t* buffer, uint8_t count);
 extern void shell_main();
 
 void* tar_archive = 0;
@@ -102,13 +151,8 @@ void vga_set_text_mode() {
 void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     terminal_initialize();
 
-    // Set tar_archive from multiboot modules
-    if (mb_info && (mb_info->flags & (1 << 3)) && mb_info->mods_count > 0) {
-        multiboot_module_t* mods = (multiboot_module_t*)mb_info->mods_addr;
-        tar_archive = (void*)mods[0].mod_start;
-    } else {
-        tar_archive = (void*)0x1000000; // fallback
-    }
+    // Initrd removed, using disk driver instead
+    tar_archive = 0;
 
     terminal_writestring("Init start\n");
     init_gdt();
@@ -117,11 +161,25 @@ void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     terminal_writestring("IDT done\n");
     irq_install();
     terminal_writestring("IRQ done\n");
-    // ata_init();
-    terminal_writestring("ATA skipped\n");
+    ata_init();
+    terminal_writestring("ATA initialized\n");
 
-    // int disk_count = ata_detect_disks();
-    terminal_writestring("Lakos OS v0.3 Booted! Disks: 0\n");
+    int disk_count = ata_detect_disks();
+    terminal_writestring("Lakos OS v0.3 Booted! Disks: ");
+    char buf[12];
+    itoa(disk_count, buf);
+    terminal_writestring(buf);
+    terminal_writestring("\n");
+
+    // Load tar archive from disk
+    if (disk_count > 0) {
+        tar_archive = (void*)0x1000000;
+        ata_read_sectors(0, 100, (uint16_t*)tar_archive, 20); // Load 20 sectors (10KB) from LBA 100
+        terminal_writestring("Tar archive loaded from disk\n");
+    } else {
+        tar_archive = 0;
+        terminal_writestring("No disks detected, tar archive not loaded\n");
+    }
 
     __asm__ volatile("sti");
     terminal_writestring("Before shell\n");

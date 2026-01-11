@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include <io.h>
+#include "io.h"
 
 static inline uint16_t inw(uint16_t port) {
     uint16_t ret;
@@ -56,6 +56,8 @@ int ata_identify(uint8_t drive) {
 }
 
 void ata_read_sector(uint8_t drive, uint32_t lba, uint16_t* buffer) {
+    if (drive > 1) return;
+    if (lba > 0xFFFFFF) return; // LBA28 limit
     ata_select_drive(drive);
     outb(ATA_SECTOR_COUNT, 1);
     outb(ATA_LBA_LOW, lba & 0xFF);
@@ -64,12 +66,16 @@ void ata_read_sector(uint8_t drive, uint32_t lba, uint16_t* buffer) {
     outb(ATA_COMMAND, ATA_CMD_READ);
 
     if (!ata_wait()) return; // Timeout, don't read
+    uint8_t status = inb(ATA_STATUS);
+    if (status & 0x01) return; // ERR bit set
     for (int i = 0; i < 256; i++) {
         buffer[i] = inw(ATA_DATA);
     }
 }
 
 void ata_write_sector(uint8_t drive, uint32_t lba, uint16_t* buffer) {
+    if (drive > 1) return;
+    if (lba > 0xFFFFFF) return; // LBA28 limit
     ata_select_drive(drive);
     outb(ATA_SECTOR_COUNT, 1);
     outb(ATA_LBA_LOW, lba & 0xFF);
@@ -82,6 +88,40 @@ void ata_write_sector(uint8_t drive, uint32_t lba, uint16_t* buffer) {
         outw(ATA_DATA, buffer[i]);
     }
     // Flush cache (simplified)
+    ata_wait(); // Wait for write to complete
+}
+
+void ata_read_sectors(uint8_t drive, uint32_t lba, uint16_t* buffer, uint8_t count) {
+    ata_select_drive(drive);
+    outb(ATA_SECTOR_COUNT, count);
+    outb(ATA_LBA_LOW, lba & 0xFF);
+    outb(ATA_LBA_MID, (lba >> 8) & 0xFF);
+    outb(ATA_LBA_HIGH, (lba >> 16) & 0xFF);
+    outb(ATA_COMMAND, ATA_CMD_READ);
+
+    if (!ata_wait()) return; // Timeout
+    for (int s = 0; s < count; s++) {
+        for (int i = 0; i < 256; i++) {
+            buffer[s * 256 + i] = inw(ATA_DATA);
+        }
+    }
+}
+
+void ata_write_sectors(uint8_t drive, uint32_t lba, uint16_t* buffer, uint8_t count) {
+    ata_select_drive(drive);
+    outb(ATA_SECTOR_COUNT, count);
+    outb(ATA_LBA_LOW, lba & 0xFF);
+    outb(ATA_LBA_MID, (lba >> 8) & 0xFF);
+    outb(ATA_LBA_HIGH, (lba >> 16) & 0xFF);
+    outb(ATA_COMMAND, ATA_CMD_WRITE);
+
+    if (!ata_wait()) return; // Timeout
+    for (int s = 0; s < count; s++) {
+        for (int i = 0; i < 256; i++) {
+            outw(ATA_DATA, buffer[s * 256 + i]);
+        }
+    }
+    // Flush cache
 }
 
 void ata_init() {

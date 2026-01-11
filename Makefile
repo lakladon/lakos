@@ -33,8 +33,9 @@ all: lakos.bin modules.tar
 lakos.bin: $(OBJ)
 	$(LD) $(LDFLAGS) -o $@ $(OBJ)
 
-modules.tar: rootfs/bin/* rootfs/Ctest
-	cd rootfs && tar cf ../$@ *
+.PHONY: modules.tar
+modules.tar:
+	cd rootfs && chmod -R +x bin && tar  -cf ../$@ *
 
 iso: lakos.bin modules.tar
 	mkdir -p isodir/boot/grub

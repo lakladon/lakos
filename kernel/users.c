@@ -1,7 +1,9 @@
 #include "include/users.h"
 #include <stdint.h>
 
-user_t users[10];
+extern void* memcpy(void* dest, const void* src, unsigned int n);
+
+user_t users[MAX_USERS];
 int user_count = 0;
 char current_user[32] = "";
 
@@ -23,35 +25,40 @@ void load_users() {
     uint16_t buffer[256];
     ata_read_sector(0, USER_DATA_LBA, buffer);
     memcpy(&user_count, buffer, sizeof(int));
-    memcpy(users, (char*)buffer + sizeof(int), sizeof(user_t) * 10);
+    if (user_count > MAX_USERS) user_count = MAX_USERS;
+    memcpy(users, (char*)buffer + sizeof(int), sizeof(user_t) * user_count);
 }
 
 void save_users() {
     if (!ata_identify(0)) return;
     uint16_t buffer[256] = {0};
     memcpy(buffer, &user_count, sizeof(int));
-    memcpy((char*)buffer + sizeof(int), users, sizeof(user_t) * 10);
+    memcpy((char*)buffer + sizeof(int), users, sizeof(user_t) * MAX_USERS);
     ata_write_sector(0, USER_DATA_LBA, buffer);
 }
 
 void init_users() {
     load_users();
-    if (user_count == 0 || user_count > 10) {
+    if (user_count == 0 || user_count > MAX_USERS) {
         strcpy(users[0].username, "root");
         strcpy(users[0].password, "root");
+        users[0].uid = 0;
+        users[0].gid = 0;
         user_count = 1;
         save_users();
     }
 }
 
 int add_user(const char* username, const char* password) {
-    if (user_count >= 10) return 0;
+    if (user_count >= MAX_USERS) return 0;
     if (strlen(username) >= 32 || strlen(password) >= 32) return 0;
     for (int i = 0; i < user_count; i++) {
         if (strcmp(users[i].username, username) == 0) return 0; // already exists
     }
     strcpy(users[user_count].username, username);
     strcpy(users[user_count].password, password);
+    users[user_count].uid = user_count + 1; // root 0, first user 1
+    users[user_count].gid = 100; // users group
     user_count++;
     return 1;
 }
@@ -94,4 +101,22 @@ int delete_user(const char* username) {
         }
     }
     return 0;
+}
+
+int get_current_uid() {
+    for (int i = 0; i < user_count; i++) {
+        if (strcmp(users[i].username, current_user) == 0) {
+            return users[i].uid;
+        }
+    }
+    return -1;
+}
+
+int get_current_gid() {
+    for (int i = 0; i < user_count; i++) {
+        if (strcmp(users[i].username, current_user) == 0) {
+            return users[i].gid;
+        }
+    }
+    return -1;
 }

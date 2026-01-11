@@ -3,6 +3,12 @@
 #include "include/users.h"
 #include "include/crypt.h"
 
+extern int get_current_uid();
+extern int get_current_gid();
+extern void itoa(int n, char* buf);
+extern void ata_read_sector(uint8_t drive, uint32_t lba, uint16_t* buffer);
+extern void ata_write_sector(uint8_t drive, uint32_t lba, uint16_t* buffer);
+
 int strlen(const char* s);
 
 extern void save_users();
@@ -234,6 +240,15 @@ int strlen(const char* s) {
     return len;
 }
 
+int atoi(const char* s) {
+    int n = 0;
+    while (*s >= '0' && *s <= '9') {
+        n = n * 10 + (*s - '0');
+        s++;
+    }
+    return n;
+}
+
 void* memcpy(void* dest, const void* src, unsigned int n) {
     char* d = (char*)dest;
     const char* s = (const char*)src;
@@ -291,7 +306,7 @@ file_t* create_file(const char* name) {
 // Твоя функция поиска команд и бинарников
 void writeUSERterminal(const char* input) {
     if (strcmp(input, "help") == 0) {
-        terminal_writestring("Lakos OS Commands: help, cls, ver, pwd, ls, cd, echo, uname, date, cat, mkdir, disks, mount, useradd, passwd, login, userdel, crypt\nAvailable programs: hello, test, editor, calc\n");
+        terminal_writestring("Lakos OS Commands: help, cls, ver, pwd, ls, cd, echo, uname, date, cat, mkdir, disks, read_sector, write_sector, mount, useradd, passwd, login, userdel, crypt\nAvailable programs: hello, test, editor, calc\n");
     }
     else if (strcmp(input, "cls") == 0) {
         terminal_initialize();
@@ -523,6 +538,41 @@ void writeUSERterminal(const char* input) {
             terminal_writestring("1 ");
         }
         terminal_writestring("\n");
+    } else if (strncmp(input, "read_sector ", 12) == 0) {
+        const char* args = input + 12;
+        int drive = atoi(args);
+        while (*args && *args != ' ') args++;
+        if (*args == ' ') args++;
+        int lba = atoi(args);
+        if (drive >= 0 && lba >= 0) {
+            uint16_t buffer[256];
+            ata_read_sector(drive, lba, buffer);
+            terminal_writestring("Sector data (first 16 words in hex):\n");
+            for (int i = 0; i < 16; i++) {
+                char hex[10];
+                itoa(buffer[i], hex);
+                terminal_writestring(hex);
+                terminal_writestring(" ");
+            }
+            terminal_writestring("\n");
+        } else {
+            terminal_writestring("Usage: read_sector <drive> <lba>\n");
+        }
+    } else if (strncmp(input, "write_sector ", 13) == 0) {
+        const char* args = input + 13;
+        int drive = atoi(args);
+        while (*args && *args != ' ') args++;
+        if (*args == ' ') args++;
+        int lba = atoi(args);
+        if (drive >= 0 && lba >= 0) {
+            uint16_t buffer[256];
+            memset(buffer, 0, 512);
+            buffer[0] = 0x4141; // 'AA'
+            ata_write_sector(drive, lba, buffer);
+            terminal_writestring("Sector written with test data\n");
+        } else {
+            terminal_writestring("Usage: write_sector <drive> <lba>\n");
+        }
     } else if (strncmp(input, "mount ", 6) == 0) {
         const char* args = input + 6;
         if (strlen(args) == 0) {
@@ -533,6 +583,10 @@ void writeUSERterminal(const char* input) {
             terminal_writestring("\n");
         }
     } else if (strncmp(input, "useradd ", 8) == 0) {
+        if (get_current_uid() != 0) {
+            terminal_writestring("Permission denied\n");
+            return;
+        }
         const char* args = input + 8;
         char username[32], password[32];
         char* space = strstr(args, " ");
@@ -557,6 +611,8 @@ void writeUSERterminal(const char* input) {
         } else {
             terminal_writestring("Usage: useradd <username> <password>\n");
         }
+    } else if (strcmp(input, "login") == 0) {
+        terminal_writestring("Usage: login <username> <password>\n");
     } else if (strncmp(input, "passwd ", 7) == 0) {
         const char* args = input + 7;
         char username[32], newpass[32];
@@ -614,6 +670,10 @@ void writeUSERterminal(const char* input) {
             terminal_writestring("Usage: login <username> <password>\n");
         }
     } else if (strncmp(input, "userdel ", 8) == 0) {
+        if (get_current_uid() != 0) {
+            terminal_writestring("Permission denied\n");
+            return;
+        }
         const char* args = input + 8;
         if (strlen(args) > 0) {
             if (delete_user(args)) {
@@ -682,10 +742,23 @@ void shell_handle_key(char c) {
         }
 
         terminal_writestring("LakOS>");
-        terminal_writestring(current_user);
+        if (strcmp(current_user, "root") == 0) {
+            terminal_writestring("\033[31mroot\033[0m");
+        } else {
+            terminal_writestring("\033[32m");
+            terminal_writestring(current_user);
+            terminal_writestring("\033[0m");
+        }
         terminal_writestring(" ");
         terminal_writestring(current_dir);
-        terminal_writestring(" ");
+        terminal_writestring(" \033[36m(uid:");
+        char buf[16];
+        itoa(get_current_uid(), buf);
+        terminal_writestring(buf);
+        terminal_writestring(",gid:");
+        itoa(get_current_gid(), buf);
+        terminal_writestring(buf);
+        terminal_writestring(")\033[0m ");
         shell_ptr = 0;
     } 
     else if (c == '\b') {
@@ -711,9 +784,9 @@ void shell_main() {
     terminal_writestring("Users done\n");
     terminal_writestring("\n");
     terminal_writestring(" _         _    ___  ___ \n");
-    terminal_writestring("| |   ___ | |__| . |/ __>\n");
+    terminal_writestring("| |   ___ | |__| . |/ __>  by @lakladn\n");
     terminal_writestring("| |_ <_> || / /| | |\\__ \\\n");
-    terminal_writestring("|___|<___||_\\_\\`___'<___/\n");
+    terminal_writestring("|___|<___||_\\_\\`___'<___/  ONO SUKA RABOTAET\n");
     terminal_writestring("\nWelcome to Lakos OS\n");
 
     terminal_writestring("Shell initialized, starting login\n");
@@ -736,8 +809,21 @@ void shell_main() {
 
     terminal_writestring("Login successful\n");
     terminal_writestring("LakOS>");
-    terminal_writestring(current_user);
-    terminal_writestring(" / ");
+    if (strcmp(current_user, "root") == 0) {
+        terminal_writestring("\033[31mroot\033[0m");
+    } else {
+        terminal_writestring("\033[32m");
+        terminal_writestring(current_user);
+        terminal_writestring("\033[0m");
+    }
+    terminal_writestring(" / \033[36m(uid:");
+    char buf[16];
+    itoa(get_current_uid(), buf);
+    terminal_writestring(buf);
+    terminal_writestring(",gid:");
+    itoa(get_current_gid(), buf);
+    terminal_writestring(buf);
+    terminal_writestring(")\033[0m ");
     while(1) {
         if (inb(0x64) & 0x1) {
             uint8_t scancode = inb(0x60);

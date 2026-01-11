@@ -14,13 +14,16 @@ struct tar_header {
     char magic[6];
 } __attribute__((packed));
 
-// Твоя функция get_size
+// Fixed function get_size for octal
 unsigned int get_size(const char *in) {
     unsigned int size = 0;
-    unsigned int j;
-    unsigned int count = 1;
-    for (j = 11; j > 0; j--, count *= 8) 
-        size += (in[j - 1] - '0') * count;
+    int i = 0;
+    // Skip leading spaces
+    while (i < 12 && in[i] == ' ') i++;
+    // Parse octal digits
+    for (; i < 12 && in[i] >= '0' && in[i] <= '7'; i++) {
+        size = size * 8 + (in[i] - '0');
+    }
     return size;
 }
 
