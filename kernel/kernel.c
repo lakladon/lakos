@@ -1,6 +1,7 @@
 #include "include/multiboot.h"
 #include <stdint.h>
 #include <stddef.h>
+#include "include/version.h"
 
 static inline void outb(uint16_t port, uint8_t val) {
     __asm__ volatile("outb %0, %1" : : "a"(val), "Nd"(port));
@@ -139,6 +140,7 @@ void irq_install();
 extern void ata_init();
 extern int ata_detect_disks();
 extern void ata_read_sectors(uint8_t drive, uint32_t lba, uint16_t* buffer, uint8_t count);
+extern void mouse_install();
 extern void shell_main();
 
 void* tar_archive = 0;
@@ -165,7 +167,9 @@ void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     terminal_writestring("ATA initialized\n");
 
     int disk_count = ata_detect_disks();
-    terminal_writestring("Lakos OS v0.3 Booted! Disks: ");
+    terminal_writestring("lakKERNEL ");
+    terminal_writestring(KERNEL_VERSION);
+    terminal_writestring(" Booted! Disks: ");
     char buf[12];
     itoa(disk_count, buf);
     terminal_writestring(buf);

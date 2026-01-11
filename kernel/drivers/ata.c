@@ -1,6 +1,18 @@
 #include <stdint.h>
 #include "io.h"
 
+extern void terminal_writestring(const char*);
+
+void print_hex(uint32_t n, int digits) {
+    char buf[9];
+    buf[digits] = 0;
+    for (int i = digits - 1; i >= 0; i--) {
+        buf[i] = "0123456789ABCDEF"[n & 0xF];
+        n >>= 4;
+    }
+    terminal_writestring(buf);
+}
+
 static inline uint16_t inw(uint16_t port) {
     uint16_t ret;
     __asm__ volatile("inw %1, %0" : "=a"(ret) : "Nd"(port));
@@ -51,7 +63,19 @@ int ata_identify(uint8_t drive) {
     if (!ata_wait()) return 0; // Timeout
     status = inb(ATA_STATUS);
     if (status & 0x01) return 0; // ERR bit set
-    // Read identify data (not implemented fully)
+
+    uint16_t identify_data[256];
+    for (int i = 0; i < 256; i++) {
+        identify_data[i] = inw(ATA_DATA);
+    }
+
+    terminal_writestring("ATA Drive ");
+    char buf[2]; buf[0] = '0' + drive; buf[1] = 0;
+    terminal_writestring(buf);
+    terminal_writestring(" ID: 0x");
+    print_hex(identify_data[0], 4);
+    terminal_writestring("\n");
+
     return 1;
 }
 

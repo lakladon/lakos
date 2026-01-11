@@ -1,5 +1,7 @@
 #include <stdint.h>
-#include <io.h>
+#include "io.h"
+
+extern void terminal_writestring(const char*);
 
 volatile int mouse_x = 160;
 volatile int mouse_y = 100;
@@ -33,6 +35,7 @@ uint8_t mouse_read() {
 }
 
 void mouse_install() {
+    terminal_writestring("Mouse driver loading...\n");
     // Enable auxiliary device
     mouse_wait(1);
     outb(0x64, 0xA8);
@@ -51,6 +54,7 @@ void mouse_install() {
     // Enable data reporting
     mouse_write(0xF4);
     mouse_read(); // ack
+    terminal_writestring("Mouse driver loaded: 0xPS2\n");
 }
 
 void mouse_handler() {

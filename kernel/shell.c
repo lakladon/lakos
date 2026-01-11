@@ -2,6 +2,7 @@
 #include <io.h>
 #include "include/users.h"
 #include "include/crypt.h"
+#include "include/version.h"
 
 extern int get_current_uid();
 extern int get_current_gid();
@@ -306,13 +307,15 @@ file_t* create_file(const char* name) {
 // Твоя функция поиска команд и бинарников
 void writeUSERterminal(const char* input) {
     if (strcmp(input, "help") == 0) {
-        terminal_writestring("Lakos OS Commands: help, cls, ver, pwd, ls, cd, echo, uname, date, cat, mkdir, disks, read_sector, write_sector, mount, useradd, passwd, login, userdel, crypt\nAvailable programs: hello, test, editor, calc\n");
+        terminal_writestring("Lakos OS Commands: help, cls, ver, pwd, ls, cd, echo, uname, date, cat, mkdir, disks, read_sector, write_sector, mount, useradd, passwd, login, userdel, crypt, whoami, touch, rm, cp\nAvailable programs: hello, test, editor, calc\n");
     }
     else if (strcmp(input, "cls") == 0) {
         terminal_initialize();
     }
     else if (strcmp(input, "ver") == 0) {
-        terminal_writestring("Lakos OS v0.3.7 [Kernel Mode]\n");
+        terminal_writestring("lakKERNEL ");
+        terminal_writestring(KERNEL_VERSION);
+        terminal_writestring(" [Kernel Mode]\n");
     }
     else if (strcmp(input, "pwd") == 0) {
         terminal_writestring(current_dir);
@@ -439,6 +442,10 @@ void writeUSERterminal(const char* input) {
     else if (strcmp(input, "date") == 0) {
         terminal_writestring("2026-01-10\n");
     }
+    else if (strcmp(input, "whoami") == 0) {
+        terminal_writestring(current_user);
+        terminal_writestring("\n");
+    }
     else if (strcmp(input, "calc") == 0) {
         terminal_writestring("Simple Calculator: 2 + 2 = 4\n");
     }
@@ -505,6 +512,78 @@ void writeUSERterminal(const char* input) {
                 terminal_writestring("mkdir: parent directory not found\n");
             } else {
                 terminal_writestring("mkdir: can only create directories in /home\n");
+            }
+        }
+    }
+    else if (strncmp(input, "touch ", 6) == 0) {
+        const char* filename = input + 6;
+        if (strlen(filename) == 0) {
+            terminal_writestring("touch: missing file name\n");
+        } else {
+            if (!find_file(filename)) {
+                create_file(filename);
+                terminal_writestring("touch: created file '");
+                terminal_writestring(filename);
+                terminal_writestring("'\n");
+            } else {
+                terminal_writestring("touch: file '");
+                terminal_writestring(filename);
+                terminal_writestring("' already exists\n");
+            }
+        }
+    }
+    else if (strncmp(input, "rm ", 3) == 0) {
+        const char* filename = input + 3;
+        if (strlen(filename) == 0) {
+            terminal_writestring("rm: missing file name\n");
+        } else {
+            file_t* f = find_file(filename);
+            if (f) {
+                strcpy(f->name, "");
+                f->size = 0;
+                terminal_writestring("rm: removed '");
+                terminal_writestring(filename);
+                terminal_writestring("'\n");
+            } else {
+                terminal_writestring("rm: ");
+                terminal_writestring(filename);
+                terminal_writestring(": No such file\n");
+            }
+        }
+    }
+    else if (strstr(input, " cp ")) {
+        char temp[256];
+        strcpy(temp, input);
+        char* cp_pos = strstr(temp, " cp ");
+        if (cp_pos) {
+            *cp_pos = '\0';
+            const char* source = cp_pos + 4;
+            char* space = strstr(source, " ");
+            if (space) {
+                *space = '\0';
+                const char* dest = space + 1;
+                file_t* s = find_file(source);
+                if (s) {
+                    file_t* d = find_file(dest);
+                    if (!d) d = create_file(dest);
+                    if (d) {
+                        strcpy(d->content, s->content);
+                        d->size = s->size;
+                        terminal_writestring("cp: copied '");
+                        terminal_writestring(source);
+                        terminal_writestring("' to '");
+                        terminal_writestring(dest);
+                        terminal_writestring("'\n");
+                    } else {
+                        terminal_writestring("cp: failed to create destination\n");
+                    }
+                } else {
+                    terminal_writestring("cp: ");
+                    terminal_writestring(source);
+                    terminal_writestring(": No such file\n");
+                }
+            } else {
+                terminal_writestring("Usage: cp <source> <dest>\n");
             }
         }
     }
@@ -778,6 +857,9 @@ void shell_handle_key(char c) {
 // ГЛАВНАЯ ФУНКЦИЯ ШЕЛЛА
 void shell_main() {
     terminal_writestring("Shell start\n");
+    terminal_writestring("lkaS  ");
+    terminal_writestring(SHELL_VERSION);
+    terminal_writestring("\n");
     init_dirs();
     terminal_writestring("Dirs done\n");
     init_users();

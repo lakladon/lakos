@@ -23,6 +23,7 @@ OBJ = \
       kernel/idt.o \
       kernel/isr.o \
       kernel/drivers/ata.o \
+      kernel/drivers/mouse.o \
       kernel/idt_flush.o \
       kernel/interrupts.o \
       kernel/idt_load.o \
