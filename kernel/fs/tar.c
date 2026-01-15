@@ -3,26 +3,6 @@
 
 extern void terminal_writestring(const char* s);
 
-void itoa(int n, char* buf) {
-    if (n == 0) {
-        buf[0] = '0';
-        buf[1] = '\0';
-        return;
-    }
-    int i = 0;
-    while (n > 0) {
-        buf[i++] = '0' + n % 10;
-        n /= 10;
-    }
-    buf[i] = '\0';
-    // reverse
-    for (int j = 0; j < i/2; j++) {
-        char t = buf[j];
-        buf[j] = buf[i-1-j];
-        buf[i-1-j] = t;
-    }
-}
-
 struct tar_header {
     char name[100];
     char mode[8];
