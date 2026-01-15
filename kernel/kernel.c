@@ -142,7 +142,6 @@ extern int ata_detect_disks();
 extern void ata_read_sectors(uint8_t drive, uint32_t lba, uint16_t* buffer, uint8_t count);
 extern void mouse_install();
 extern void shell_main();
-extern void start_gui();
 
 void* tar_archive = 0;
 
@@ -189,10 +188,9 @@ void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     terminal_writestring(buf);
     terminal_writestring("\n");
 
-    mouse_install();
     __asm__ volatile("sti");
-    terminal_writestring("Starting GUI\n");
-    start_gui();
+    terminal_writestring("Before shell\n");
+    shell_main();
 
     while(1) { __asm__ volatile("hlt"); }
 }

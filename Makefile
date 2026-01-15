@@ -33,8 +33,6 @@ OBJ = \
       kernel/interrupts.o \
       kernel/idt_load.o \
       kernel/gdtflush.o \
-      kernel/gui.o \
-      kernel/vga.o \
       modules.o
 
 all: lakos.bin
