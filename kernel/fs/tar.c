@@ -2,6 +2,7 @@
 #include <stddef.h>
 
 extern void terminal_writestring(const char* s);
+extern void itoa(int n, char* buf);
 
 struct tar_header {
     char name[100];
