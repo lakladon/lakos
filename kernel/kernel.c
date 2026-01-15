@@ -155,12 +155,6 @@ void vga_set_text_mode() {
 void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     terminal_initialize();
 
-    char buf[12];
-    terminal_writestring("Multiboot mods_count: ");
-    itoa(mb_info->mods_count, buf);
-    terminal_writestring(buf);
-    terminal_writestring("\n");
-
     terminal_writestring("Init start\n");
     init_gdt();
     terminal_writestring("GDT done\n");
@@ -180,11 +174,16 @@ void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     ata_init();
     terminal_writestring("ATA initialized\n");
 
+    char buf[12];
+    terminal_writestring("Multiboot mods_count: ");
+    itoa(mb_info->mods_count, buf);
+    terminal_writestring(buf);
+    terminal_writestring("\n");
+
     int disk_count = ata_detect_disks();
     terminal_writestring("lakKERNEL ");
     terminal_writestring(KERNEL_VERSION);
     terminal_writestring(" Booted! Disks: ");
-    char buf[12];
     itoa(disk_count, buf);
     terminal_writestring(buf);
     terminal_writestring("\n");
