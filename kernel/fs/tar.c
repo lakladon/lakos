@@ -3,6 +3,26 @@
 
 extern void terminal_writestring(const char* s);
 
+void itoa(int n, char* buf) {
+    if (n == 0) {
+        buf[0] = '0';
+        buf[1] = '\0';
+        return;
+    }
+    int i = 0;
+    while (n > 0) {
+        buf[i++] = '0' + n % 10;
+        n /= 10;
+    }
+    buf[i] = '\0';
+    // reverse
+    for (int j = 0; j < i/2; j++) {
+        char t = buf[j];
+        buf[j] = buf[i-1-j];
+        buf[i-1-j] = t;
+    }
+}
+
 struct tar_header {
     char name[100];
     char mode[8];
@@ -60,28 +80,52 @@ void* tar_lookup(void* archive, const char* filename) {
 
     while (ptr[0] != '\0') {
         struct tar_header* header = (struct tar_header*)ptr;
-        terminal_writestring("Header name: ");
+        terminal_writestring("Checking header: '");
         terminal_writestring(header->name);
-        terminal_writestring("\n");
+        terminal_writestring("' against '");
+        terminal_writestring(filename);
+        terminal_writestring("'\n");
 
         int match = 1;
         int i;
         for (i = 0; filename[i] != '\0'; i++) {
             if (header->name[i] != filename[i]) {
+                terminal_writestring("Mismatch at pos ");
+                char buf[16];
+                itoa(i, buf);
+                terminal_writestring(buf);
+                terminal_writestring(": header '");
+                char cbuf[2] = {header->name[i], '\0'};
+                terminal_writestring(cbuf);
+                terminal_writestring("' vs filename '");
+                cbuf[0] = filename[i];
+                terminal_writestring(cbuf);
+                terminal_writestring("'\n");
                 match = 0;
                 break;
             }
         }
-        // Дополнительная проверка на конец строки в заголовке (или пробел для padded)
-        if (match && (header->name[i] == '\0' || header->name[i] == ' ')) {
-            terminal_writestring("Match found!\n");
-            return (void*)(ptr + 512);
+        if (match) {
+            terminal_writestring("Prefix match, checking end at pos ");
+            itoa(i, buf);
+            terminal_writestring(buf);
+            terminal_writestring(": header char '");
+            cbuf[0] = header->name[i];
+            terminal_writestring(cbuf);
+            terminal_writestring("'\n");
+            if (header->name[i] == '\0' || header->name[i] == ' ') {
+                terminal_writestring("Match found!\n");
+                return (void*)(ptr + 512);
+            } else {
+                terminal_writestring("End char not null or space, no match\n");
+            }
         }
 
         unsigned int size = get_size(header->size);
+        itoa(size, buf);
         terminal_writestring("Size: ");
-        // Need to print size, but no itoa in tar.c
-        // Skip for now
+        terminal_writestring(buf);
+        terminal_writestring(", advancing\n");
         ptr += ((size + 511) / 512 + 1) * 512;
     }
     terminal_writestring("No match found.\n");
