@@ -153,9 +153,6 @@ void vga_set_text_mode() {
 void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     terminal_initialize();
 
-    // Initrd removed, using disk driver instead
-    tar_archive = 0;
-
     terminal_writestring("Init start\n");
     init_gdt();
     terminal_writestring("GDT done\n");
@@ -163,6 +160,17 @@ void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     terminal_writestring("IDT done\n");
     irq_install();
     terminal_writestring("IRQ done\n");
+
+    // Load tar archive from multiboot modules
+    if (mb_info->flags & 4 && mb_info->mods_count > 0) {
+        multiboot_module_t* mods = (multiboot_module_t*)mb_info->mods_addr;
+        tar_archive = (void*)mods[0].mod_start;
+        terminal_writestring("Tar archive loaded from multiboot module\n");
+    } else {
+        tar_archive = 0;
+        terminal_writestring("No multiboot modules, tar archive not loaded\n");
+    }
+
     ata_init();
     terminal_writestring("ATA initialized\n");
 
@@ -174,16 +182,6 @@ void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     itoa(disk_count, buf);
     terminal_writestring(buf);
     terminal_writestring("\n");
-
-    // Load tar archive from disk
-    if (disk_count > 0) {
-        tar_archive = (void*)0x1000000;
-        ata_read_sectors(0, 100, (uint16_t*)tar_archive, 20); // Load 20 sectors (10KB) from LBA 100
-        terminal_writestring("Tar archive loaded from disk\n");
-    } else {
-        tar_archive = 0;
-        terminal_writestring("No disks detected, tar archive not loaded\n");
-    }
 
     __asm__ volatile("sti");
     terminal_writestring("Before shell\n");

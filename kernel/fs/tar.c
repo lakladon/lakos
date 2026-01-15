@@ -42,7 +42,8 @@ void tar_list_files(void* archive) {
         // Если это обычный файл (type '0' или '\0')
         if (header->name[0] != '\0') {
             // Здесь должен быть вызов твоей функции печати на экран
-            // Например: kprint(header->name); kprint("\n");
+            terminal_writestring(header->name);
+            terminal_writestring("\n");
         }
 
         unsigned int size = get_size(header->size);
@@ -71,8 +72,8 @@ void* tar_lookup(void* archive, const char* filename) {
                 break;
             }
         }
-        // Дополнительная проверка на конец строки в заголовке
-        if (match && header->name[i] == '\0') {
+        // Дополнительная проверка на конец строки в заголовке (или пробел для padded)
+        if (match && (header->name[i] == '\0' || header->name[i] == ' ')) {
             terminal_writestring("Match found!\n");
             return (void*)(ptr + 512);
         }
