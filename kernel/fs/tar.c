@@ -74,6 +74,8 @@ void tar_list_files(void* archive) {
 // Твоя функция поиска
 void* tar_lookup(void* archive, const char* filename) {
     unsigned char* ptr = (unsigned char*)archive;
+    char buf[16];
+    char cbuf[2];
     terminal_writestring("Tar lookup for: ");
     terminal_writestring(filename);
     terminal_writestring("\n");
@@ -91,11 +93,11 @@ void* tar_lookup(void* archive, const char* filename) {
         for (i = 0; filename[i] != '\0'; i++) {
             if (header->name[i] != filename[i]) {
                 terminal_writestring("Mismatch at pos ");
-                char buf[16];
                 itoa(i, buf);
                 terminal_writestring(buf);
                 terminal_writestring(": header '");
-                char cbuf[2] = {header->name[i], '\0'};
+                cbuf[0] = header->name[i];
+                cbuf[1] = '\0';
                 terminal_writestring(cbuf);
                 terminal_writestring("' vs filename '");
                 cbuf[0] = filename[i];
