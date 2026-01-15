@@ -32,7 +32,8 @@ OBJ = \
       kernel/idt_flush.o \
       kernel/interrupts.o \
       kernel/idt_load.o \
-      kernel/gdtflush.o
+      kernel/gdtflush.o \
+      modules.o
 
 all: lakos.bin
 
