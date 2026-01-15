@@ -21,6 +21,8 @@ OBJ = \
       kernel/start.o \
        kernel/kernel.o \
       kernel/shell.o \
+      kernel/vga.o \
+      kernel/gui.o \
       kernel/users.o \
       kernel/crypt.o \
       kernel/fs/tar.o \
