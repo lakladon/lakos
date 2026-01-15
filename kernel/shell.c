@@ -14,6 +14,7 @@ int strlen(const char* s);
 
 extern void save_users();
 extern char current_user[32];
+extern void start_gui();
 
 void* memcpy(void* dest, const void* src, unsigned int n);
 void* memset(void* s, int c, unsigned int n);
@@ -307,7 +308,7 @@ file_t* create_file(const char* name) {
 // Твоя функция поиска команд и бинарников
 void writeUSERterminal(const char* input) {
     if (strcmp(input, "help") == 0) {
-        terminal_writestring("Lakos OS Commands: help, cls, ver, pwd, ls, cd, echo, uname, date, cat, mkdir, disks, read_sector, write_sector, mount, useradd, passwd, login, userdel, crypt, whoami, touch, rm, cp\nAvailable programs: hello, test, editor, calc\n");
+        terminal_writestring("Lakos OS Commands: help, cls, ver, pwd, ls, cd, echo, uname, date, cat, mkdir, disks, read_sector, write_sector, mount, useradd, passwd, login, userdel, crypt, whoami, touch, rm, cp, gui\nAvailable programs: hello, test, editor, calc\n");
     }
     else if (strcmp(input, "cls") == 0) {
         terminal_initialize();
@@ -799,6 +800,8 @@ void writeUSERterminal(const char* input) {
         } else {
             terminal_writestring("Usage: crypt -e <key> <password> or crypt -d <key> <encrypted>\n");
         }
+    } else if (strcmp(input, "gui") == 0) {
+        start_gui();
     } else {
         if (is_file_in_path(input, pathbin)) {
             execute_binary(input);
