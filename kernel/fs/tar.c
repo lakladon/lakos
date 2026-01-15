@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+extern void terminal_writestring(const char* s);
+
 struct tar_header {
     char name[100];
     char mode[8];
@@ -51,9 +53,15 @@ void tar_list_files(void* archive) {
 // Твоя функция поиска
 void* tar_lookup(void* archive, const char* filename) {
     unsigned char* ptr = (unsigned char*)archive;
+    terminal_writestring("Tar lookup for: ");
+    terminal_writestring(filename);
+    terminal_writestring("\n");
 
     while (ptr[0] != '\0') {
         struct tar_header* header = (struct tar_header*)ptr;
+        terminal_writestring("Header name: ");
+        terminal_writestring(header->name);
+        terminal_writestring("\n");
 
         int match = 1;
         int i;
@@ -65,11 +73,16 @@ void* tar_lookup(void* archive, const char* filename) {
         }
         // Дополнительная проверка на конец строки в заголовке
         if (match && header->name[i] == '\0') {
+            terminal_writestring("Match found!\n");
             return (void*)(ptr + 512);
         }
 
         unsigned int size = get_size(header->size);
+        terminal_writestring("Size: ");
+        // Need to print size, but no itoa in tar.c
+        // Skip for now
         ptr += ((size + 511) / 512 + 1) * 512;
     }
+    terminal_writestring("No match found.\n");
     return NULL;
 }
