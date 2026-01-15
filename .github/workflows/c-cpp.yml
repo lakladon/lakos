@@ -34,7 +34,7 @@ jobs:
           body: |
             Это автоматическая сборка №${{ github.run_number }}.
             Системный ID запуска: ${{ github.run_id }}
-          files: lakos.bin, lakos.iso
+          files: lakos.bin, lakos.iso, modules.tar
           draft: false
           prerelease: false
         env:
