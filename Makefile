@@ -9,6 +9,11 @@ ifeq (, $(shell which $(LD)))
     LD = ld
 endif
 
+OBJCOPY = i686-elf-objcopy
+ifeq (, $(shell which $(OBJCOPY)))
+    OBJCOPY = objcopy
+endif
+
 AS = nasm
 CFLAGS = -m32 -ffreestanding -O0 -Wall -Wextra -I. -Ikernel -Ikernel/include -Ikernel/drivers
 LDFLAGS = -m elf_i386 -T linker.ld
@@ -29,7 +34,7 @@ OBJ = \
       kernel/idt_load.o \
       kernel/gdtflush.o
 
-all: lakos.bin modules.tar
+all: lakos.bin
 
 lakos.bin: $(OBJ)
 	$(LD) $(LDFLAGS) -o $@ $(OBJ)
@@ -38,14 +43,12 @@ lakos.bin: $(OBJ)
 modules.tar:
 	cd rootfs && chmod -R +x bin && tar  -cf ../$@ *
 
-iso: lakos.bin modules.tar
+iso: lakos.bin
 	mkdir -p isodir/boot/grub
 	cp lakos.bin isodir/boot/
-	cp modules.tar isodir/boot/
 	echo 'set timeout=0' > isodir/boot/grub/grub.cfg
 	echo 'menuentry "Lakos OS" {' >> isodir/boot/grub/grub.cfg
 	echo '  multiboot /boot/lakos.bin' >> isodir/boot/grub/grub.cfg
-	echo '  module /boot/modules.tar' >> isodir/boot/grub/grub.cfg
 	echo '}' >> isodir/boot/grub/grub.cfg
 	grub-mkrescue -o lakos.iso isodir
 
@@ -55,6 +58,9 @@ iso: lakos.bin modules.tar
 %.o: %.asm
 	$(AS) -f elf32 $< -o $@
 
+modules.o: modules.tar
+	$(OBJCOPY) -I binary -O elf32-i386 -B i386 $< $@
+
 clean:
-	rm -f $(OBJ) lakos.bin modules.tar lakos.iso
+	rm -f $(OBJ) modules.o lakos.bin modules.tar lakos.iso
 	rm -rf isodir

@@ -145,6 +145,8 @@ extern void shell_main();
 
 void* tar_archive = 0;
 
+extern char _binary_modules_tar_start[];
+
 // Set VGA text mode (80x25)
 void vga_set_text_mode() {
     __asm__ volatile("mov $0x03, %%ah; int $0x10" : : : "ah"); // BIOS set mode 3
@@ -161,15 +163,9 @@ void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     irq_install();
     terminal_writestring("IRQ done\n");
 
-    // Load tar archive from multiboot modules
-    if (mb_info->flags & 4 && mb_info->mods_count > 0) {
-        multiboot_module_t* mods = (multiboot_module_t*)mb_info->mods_addr;
-        tar_archive = (void*)mods[0].mod_start;
-        terminal_writestring("Tar archive loaded from multiboot module\n");
-    } else {
-        tar_archive = 0;
-        terminal_writestring("No multiboot modules, tar archive not loaded\n");
-    }
+    // Load embedded tar archive
+    tar_archive = (void*)&_binary_modules_tar_start;
+    terminal_writestring("Tar archive embedded\n");
 
     ata_init();
     terminal_writestring("ATA initialized\n");
