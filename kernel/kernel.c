@@ -155,6 +155,12 @@ void vga_set_text_mode() {
 void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     terminal_initialize();
 
+    char buf[12];
+    terminal_writestring("Multiboot mods_count: ");
+    itoa(mb_info->mods_count, buf);
+    terminal_writestring(buf);
+    terminal_writestring("\n");
+
     terminal_writestring("Init start\n");
     init_gdt();
     terminal_writestring("GDT done\n");
@@ -165,7 +171,11 @@ void kmain(multiboot_info_t* mb_info, uint32_t magic) {
 
     // Load embedded tar archive
     tar_archive = (void*)&_binary_modules_tar_start;
-    terminal_writestring("Tar archive embedded\n");
+    if (tar_archive == 0) {
+        terminal_writestring("Tar archive not loaded\n");
+    } else {
+        terminal_writestring("Tar archive embedded\n");
+    }
 
     ata_init();
     terminal_writestring("ATA initialized\n");
