@@ -96,7 +96,7 @@ qemu-system-i386 -cdrom lakos.iso
 ## Project Structure
 
 ```
-lakos_beta0/
+lakos/
 ├── boot/
 │   └── boot.asm              # Multiboot bootloader
 ├── kernel/
