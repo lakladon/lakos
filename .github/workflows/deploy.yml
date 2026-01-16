@@ -21,6 +21,14 @@ jobs:
           sudo ln -s /usr/bin/gcc /usr/bin/i686-elf-gcc
           sudo ln -s /usr/bin/ld /usr/bin/i686-elf-ld
 
+      - name: Build DOOM objects
+        run: |
+          for f in doomgeneric/doomgeneric/*.c; do
+            if [[ "$f" != *"doomgeneric_sdl.c" ]] && [[ "$f" != *"doomgeneric_win.c" ]] && [[ "$f" != *"doomgeneric_xlib.c" ]] && [[ "$f" != *"doomgeneric_emscripten.c" ]] && [[ "$f" != *"doomgeneric_linuxvt.c" ]] && [[ "$f" != *"doomgeneric_soso.c" ]] && [[ "$f" != *"doomgeneric_sosox.c" ]] && [[ "$f" != *"doomgeneric_allegro.c" ]]; then
+              i686-elf-gcc -m32 -ffreestanding -O0 -Wall -Wextra -I. -Ikernel -Ikernel/include -Ikernel/drivers -Idoomgeneric/doomgeneric -c "$f" -o "${f%.c}.o"
+            fi
+          done
+
       - name: Build Kernel and iso
         run: make iso
 
