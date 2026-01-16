@@ -15,7 +15,7 @@ ifeq (, $(shell which $(OBJCOPY)))
 endif
 
 AS = nasm
-CFLAGS = -m32 -ffreestanding -O0 -Wall -Wextra -I. -Ikernel -Ikernel/include -Ikernel/drivers
+CFLAGS = -m32 -ffreestanding -O0 -Wall -Wextra -I. -Ikernel -Ikernel/include -Ikernel/drivers -Idoomgeneric/doomgeneric
 LDFLAGS = -m elf_i386 -T linker.ld
 OBJ = \
       kernel/start.o \
