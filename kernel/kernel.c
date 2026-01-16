@@ -142,6 +142,7 @@ extern int ata_detect_disks();
 extern void ata_read_sectors(uint8_t drive, uint32_t lba, uint16_t* buffer, uint8_t count);
 extern void mouse_install();
 extern void shell_main();
+extern int main(int argc, char **argv);
 
 void* tar_archive = 0;
 
@@ -189,8 +190,8 @@ void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     terminal_writestring("\n");
 
     __asm__ volatile("sti");
-    terminal_writestring("Before shell\n");
-    shell_main();
+    terminal_writestring("Starting DOOM\n");
+    main(1, (char*[]){"doom", NULL});
 
     while(1) { __asm__ volatile("hlt"); }
 }
