@@ -15,7 +15,7 @@ ifeq (, $(shell which $(OBJCOPY)))
 endif
 
 AS = nasm
-CFLAGS = -m32 -ffreestanding -O0 -Wall -Wextra -I. -Ikernel -Ikernel/include -Ikernel/drivers -Idoomgeneric/doomgeneric
+CFLAGS = -m32 -ffreestanding -O0 -Wall -Wextra -I. -Ikernel -Ikernel/include -Ikernel/drivers
 LDFLAGS = -m elf_i386 -T linker.ld
 OBJ = \
       kernel/start.o \
@@ -67,6 +67,3 @@ modules.o: modules.tar
 clean:
 	rm -f $(OBJ) modules.o lakos.bin modules.tar lakos.iso
 	rm -rf isodir
-DOOM_OBJ = $(patsubst %.c,%.o,$(wildcard doomgeneric/doomgeneric/*.c)) 
-OBJ += $(filter-out doomgeneric/doomgeneric/doomgeneric_%.o, $(DOOM_OBJ)) 
-OBJ += doomgeneric/doomgeneric/doomgeneric_lakos.o 

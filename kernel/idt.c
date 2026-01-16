@@ -63,13 +63,4 @@ void irq_install() {
     idt_set_gate(33, (uint32_t)irq1, 0x08, 0x8E);
     // Регистрируем обработчик мыши на вектор 44
     idt_set_gate(44, (uint32_t)irq12, 0x08, 0x8E);
-
-    // Set up PIT for 100Hz
-    outb(0x43, 0x36); // Channel 0, mode 3, binary
-    outb(0x40, 0xA9); // Low byte
-    outb(0x40, 0x04); // High byte (1193182 / 100 = 11931.82 ~ 0x4A9)
-
-    // Register timer interrupt on vector 32
-    extern void irq0(); // Assume it's defined
-    idt_set_gate(32, (uint32_t)irq0, 0x08, 0x8E);
 }
