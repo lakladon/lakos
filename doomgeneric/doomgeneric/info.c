@@ -18,8 +18,6 @@
 //	This one is the original DOOM version, preserved.
 //
 
-#include <stdio.h>
-#include <stdlib.h>
 
 // Data.
 #include "sounds.h"

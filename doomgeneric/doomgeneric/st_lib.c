@@ -17,7 +17,6 @@
 //
 
 
-#include <stdio.h>
 #include <ctype.h>
 
 #include "deh_main.h"

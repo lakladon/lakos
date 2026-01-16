@@ -4,10 +4,8 @@
 #include "m_argv.h"
 #include "doomgeneric.h"
 
-#include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <string.h>
 #include <stdint.h>
 #include <sys/time.h>
 #include <sys/ioctl.h>

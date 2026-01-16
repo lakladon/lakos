@@ -4,7 +4,6 @@
 #include "m_argv.h"
 #include "doomgeneric.h"
 
-#include <stdio.h>
 #include <unistd.h>
 
 #include <stdbool.h>

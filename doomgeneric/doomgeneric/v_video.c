@@ -19,8 +19,6 @@
 //	Functions to blit a block to the screen.
 //
 
-#include <stdio.h>
-#include <string.h>
 #include <math.h>
 
 #include "i_system.h"

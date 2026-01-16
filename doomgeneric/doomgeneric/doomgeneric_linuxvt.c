@@ -45,8 +45,6 @@
 #define DOOM_KEY_F12		(0x80+0x58)
 
 
-#include <stdio.h>
-#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
