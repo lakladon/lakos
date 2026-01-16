@@ -69,3 +69,4 @@ clean:
 	rm -rf isodir
 DOOM_OBJ = $(patsubst %.c,%.o,$(wildcard doomgeneric/doomgeneric/*.c)) 
 OBJ += $(filter-out doomgeneric/doomgeneric/doomgeneric_%.o, $(DOOM_OBJ)) 
+OBJ += doomgeneric/doomgeneric/doomgeneric_lakos.o 
