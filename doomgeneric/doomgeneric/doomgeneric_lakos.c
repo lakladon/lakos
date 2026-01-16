@@ -46,6 +46,12 @@ char *strncpy(char *dest, const char *src, size_t n) {
     while (n-- && (*d++ = *src++));
     return dest;
 }
+int strncmp(const char *s1, const char *s2, size_t n) {
+    while (n-- && *s1 && *s2 && *s1 == *s2) { s1++; s2++; }
+    return n ? *s1 - *s2 : 0;
+}
+int strncasecmp(const char *s1, const char *s2, size_t n) { return strncmp(s1, s2, n); }
+int strcasecmp(const char *s1, const char *s2) { return strcmp(s1, s2); }
 int atoi(const char *nptr) { return 0; }
 double atof(const char *nptr) { return 0.0; }
 int abs(int j) { return j < 0 ? -j : j; }
