@@ -8,12 +8,9 @@ Lakos OS is a simple, experimental operating system written in C and Assembly, d
 - **Graphical Terminal**: VGA Mode 13h (320x200) with basic text rendering
 - **Interrupt Handling**: GDT, IDT, and ISR setup for hardware interrupts
 - **Input Devices**: Keyboard and mouse support
-- **ATA Disk Driver**: Basic ATA hard disk support
-- **Cryptography**: Simple encryption/decryption functions
-- **User Management**: Basic user handling
 - **Shell**: Command-line interface with built-in commands and program execution
-- **TAR Filesystem Support**: Experimental TAR-based filesystem
-- **Programs**: Includes simple programs like `calc`, `hello`, and `test`
+- **Filesystem Simulation**: Basic directory structure with `/bin`, `/dev`, `/home`
+- **Programs**: Includes simple programs like `hello`, `test`, and `editor`
 
 ## Version
 
@@ -100,51 +97,33 @@ qemu-system-i386 -cdrom lakos.iso
 
 ```
 lakos/
-├── .github/                   # GitHub configuration
-├── .vscode/                   # VS Code configuration
 ├── boot/
-│   └── boot.asm               # Multiboot bootloader
+│   └── boot.asm              # Multiboot bootloader
 ├── kernel/
-│   ├── kernel.c               # Main kernel entry point
-│   ├── shell.c                # Command-line shell implementation
-│   ├── vga.c                  # VGA graphics mode handling
-│   ├── gui.c                  # GUI components
-│   ├── idt.c                  # Interrupt Descriptor Table
-│   ├── isr.c                  # Interrupt Service Routines
-│   ├── gdt.c                  # Global Descriptor Table
-│   ├── crypt.c                # Cryptography functions
-│   ├── users.c                # User management
-│   ├── start.asm              # Kernel startup assembly
-│   ├── gdtflush.asm           # GDT flush routine
-│   ├── idt_flush.asm          # IDT flush routine
-│   ├── idt_load.asm           # IDT load routine
-│   ├── interrupts.asm         # Interrupt handlers
-│   ├── vga.o                  # Compiled VGA object
-│   ├── gui.o                  # Compiled GUI object
+│   ├── kernel.c              # Main kernel entry point
+│   ├── shell.c               # Command-line shell implementation
+│   ├── vga.c                 # VGA graphics mode handling
+│   ├── gui.c                 # GUI components (if any)
+│   ├── idt.c                 # Interrupt Descriptor Table
+│   ├── isr.c                 # Interrupt Service Routines
+│   ├── gdt.c                 # Global Descriptor Table
 │   ├── drivers/
-│   │   ├── ata.c              # ATA disk driver
-│   │   ├── mouse.c            # Mouse driver
-│   │   └── io.h               # I/O port utilities
+│   │   ├── keyboard.c        # Keyboard driver
+│   │   ├── mouse.c           # Mouse driver
+│   │   └── io.h              # I/O port utilities
 │   ├── fs/
-│   │   └── tar.c              # TAR filesystem support
+│   │   └── tar.c             # TAR filesystem support (experimental)
 │   └── include/
-│       ├── crypt.h            # Cryptography headers
-│       ├── gdt.h              # GDT definitions
-│       ├── idt.h              # IDT definitions
-│       ├── multiboot.h        # Multiboot header definitions
-│       ├── users.h            # User management headers
-│       └── version.h          # Version definitions
+│       ├── gdt.h             # GDT definitions
+│       ├── idt.h             # IDT definitions
+│       └── multiboot.h       # Multiboot header definitions
 ├── rootfs/
-│   ├── Ctest                  # Test configuration
-│   └── bin/                   # User-space programs
-│       ├── calc               # Calculator program
-│       ├── hello              # Hello world program
-│       └── test               # Test program
-├── disk.img                   # Disk image
-├── version.txt                # Version information
-├── Makefile                   # Build configuration
-├── linker.ld                  # Linker script
-└── README.md                  # This file
+│   └── bin/                  # User-space programs
+│       ├── hello
+│       └── test
+├── Makefile                  # Build configuration
+├── linker.ld                 # Linker script
+└── README.md                 # This file
 ```
 
 ## Shell Commands
@@ -160,7 +139,7 @@ The built-in shell supports the following commands:
 - `echo` - Echo command (placeholder)
 - `uname` - Print system name
 - `date` - Print current date
-- Programs: `calc`, `hello`, `test`
+- Programs: `hello`, `test`, `editor`
 
 ## Contributing
 
