@@ -20,8 +20,14 @@ jobs:
         id: version
         run: |
           # Получаем последний тег версии
-          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          latest_tag=$(git tag --sort=-v:refname | head -n 1 2>/dev/null || echo "v0.0.0")
           echo "Latest tag: $latest_tag"
+          
+          # Проверяем, является ли тег версией (начинается с v и содержит цифры)
+          if [[ ! "$latest_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Latest tag is not a valid version, resetting to v0.0.0"
+            latest_tag="v0.0.0"
+          fi
           
           # Убираем 'v' из начала тега если есть
           version="${latest_tag#v}"
@@ -29,7 +35,7 @@ jobs:
           # Разбиваем на major.minor.patch
           IFS='.' read -r major minor patch <<< "$version"
           
-          # Увеличиваем patch версию (можно настроить для major/minor при необходимости)
+          # Увеличиваем patch версию
           patch=$((patch + 1))
           
           new_version="v${major}.${minor}.${patch}"
@@ -42,8 +48,10 @@ jobs:
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git tag ${{ steps.version.outputs.version }}
-          git push origin ${{ steps.version.outputs.version }}
+          tag_name="${{ steps.version.outputs.version }}"
+          echo "Creating tag: $tag_name"
+          git tag -a "$tag_name" -m "Release $tag_name"
+          git push origin "$tag_name"
 
       - name: Install Dependencies
         run: |
@@ -66,7 +74,7 @@ jobs:
             
             ### Автоматическая сборка
             - Версия: **${{ steps.version.outputs.version }}**
-            - Дата сборки: `${{ github.event.head_commit.timestamp }}`
+            - Дата сборки: `${{ github.event.head_commit.timestamp || github.run_date }}`
             - Коммит: [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
             - ID запуска: `${{ github.run_id }}`
             
