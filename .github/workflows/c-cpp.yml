@@ -13,6 +13,37 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Полный history для получения всех тегов
+
+      - name: Get Next Version
+        id: version
+        run: |
+          # Получаем последний тег версии
+          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $latest_tag"
+          
+          # Убираем 'v' из начала тега если есть
+          version="${latest_tag#v}"
+          
+          # Разбиваем на major.minor.patch
+          IFS='.' read -r major minor patch <<< "$version"
+          
+          # Увеличиваем patch версию (можно настроить для major/minor при необходимости)
+          patch=$((patch + 1))
+          
+          new_version="v${major}.${minor}.${patch}"
+          echo "New version: $new_version"
+          
+          # Сохраняем новую версию в outputs
+          echo "version=$new_version" >> $GITHUB_OUTPUT
+
+      - name: Create Git Tag
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git tag ${{ steps.version.outputs.version }}
+          git push origin ${{ steps.version.outputs.version }}
 
       - name: Install Dependencies
         run: |
@@ -24,16 +55,27 @@ jobs:
       - name: Build Kernel and iso
         run: make iso
 
-      # Создание релиза с номером текущего Workflow Run
+      # Создание релиза с семантической версией
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          # github.run_number — это и есть номер запуска (1, 2, 3...)
-          tag_name: "LKB-${{ github.run_number }}"
-          name: "Lakos OS Build #${{ github.run_number }}"
+          tag_name: ${{ steps.version.outputs.version }}
+          name: "Lakos OS ${{ steps.version.outputs.version }}"
           body: |
-            Это автоматическая сборка №${{ github.run_number }}.
-            Системный ID запуска: ${{ github.run_id }}
+            ## Lakos OS ${{ steps.version.outputs.version }}
+            
+            ### Автоматическая сборка
+            - Версия: **${{ steps.version.outputs.version }}**
+            - Дата сборки: `${{ github.event.head_commit.timestamp }}`
+            - Коммит: [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+            - ID запуска: `${{ github.run_id }}`
+            
+            ### Изменения
+            ${{ github.event.head_commit.message }}
+            
+            ### Файлы
+            - `lakos.bin` - Исполняемый файл ядра
+            - `lakos.iso` - Загрузочный ISO образ
           files: lakos.bin, lakos.iso
           draft: false
           prerelease: false
