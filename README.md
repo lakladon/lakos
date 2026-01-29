@@ -174,7 +174,7 @@ This is a learning project. Contributions are welcome! Please:
 
 ## License
 
-This project is released under the MIT License. See LICENSE file for details (if applicable).
+This project is released under the GPL3 License. See LICENSE file for details (if applicable).
 
 ## Disclaimer
 
