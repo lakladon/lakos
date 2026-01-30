@@ -4,6 +4,22 @@
 #include "include/crypt.h"
 #include "include/version.h"
 
+static inline void outb(uint16_t port, uint8_t val) {
+    __asm__ volatile("outb %0, %1" : : "a"(val), "Nd"(port));
+}
+
+void shutdown() {
+    terminal_writestring("Shutting down...\n");
+    while (1) {
+        __asm__ volatile("hlt");
+    }
+}
+
+void reboot() {
+    terminal_writestring("Rebooting...\n");
+    outb(0x64, 0xFE);
+}
+
 extern int get_current_uid();
 extern int get_current_gid();
 extern void itoa(int n, char* buf);
@@ -308,7 +324,7 @@ file_t* create_file(const char* name) {
 // Твоя функция поиска команд и бинарников
 void writeUSERterminal(const char* input) {
     if (strcmp(input, "help") == 0) {
-        terminal_writestring("Lakos OS Commands: help, cls, ver, pwd, ls, cd, echo, uname, date, cat, mkdir, disks, read_sector, write_sector, mount, useradd, passwd, login, userdel, crypt, whoami, touch, rm, cp, gui\nAvailable programs: hello, test, editor, calc\n");
+        terminal_writestring("Lakos OS Commands: help, cls, ver, pwd, ls, cd, echo, uname, date, cat, mkdir, disks, read_sector, write_sector, mount, useradd, passwd, login, userdel, crypt, whoami, touch, rm, cp, shutdown, reboot, gui\nAvailable programs: hello, test, editor, calc\n");
     }
     else if (strcmp(input, "cls") == 0) {
         terminal_initialize();
@@ -800,6 +816,10 @@ void writeUSERterminal(const char* input) {
         } else {
             terminal_writestring("Usage: crypt -e <key> <password> or crypt -d <key> <encrypted>\n");
         }
+    } else if (strcmp(input, "shutdown") == 0) {
+        shutdown();
+    } else if (strcmp(input, "reboot") == 0) {
+        reboot();
     } else if (strcmp(input, "gui") == 0) {
         start_gui();
     } else {
