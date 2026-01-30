@@ -6,6 +6,9 @@
 
 void shutdown() {
     terminal_writestring("Shutting down...\n");
+    // For QEMU shutdown
+    __asm__ volatile("outw %0, %1" : : "a"((uint16_t)0x2000), "Nd"((uint16_t)0xB004));
+    // Fallback
     while (1) {
         __asm__ volatile("hlt");
     }
