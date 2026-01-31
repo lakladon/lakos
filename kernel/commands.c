@@ -5,7 +5,6 @@
 #include "include/version.h"
 #include "include/commands.h"
 #include <io.h>
-#include <string.h>
 
 extern void terminal_writestring(const char* s);
 extern void terminal_putchar(char c);
@@ -318,7 +317,12 @@ void kernel_execute_command(const char* input) {
             if (dir_len > remaining) {
                 terminal_writestring("cd: directory name too long\n");
             } else {
-                strncat(current_dir, dir, remaining);
+                // Manual string concatenation to avoid strncat
+                int current_len = strlen(current_dir);
+                for (int k = 0; k < dir_len && k < remaining; k++) {
+                    current_dir[current_len + k] = dir[k];
+                }
+                current_dir[current_len + dir_len] = '\0';
             }
         } else if (strncmp(current_dir, "/home/", 6) == 0) {
             // Handle subdirectory navigation
@@ -348,10 +352,18 @@ void kernel_execute_command(const char* input) {
                         char new_path[256];
                         strcpy(new_path, current_dir);
                         // Ensure we don't have double slashes
-                        if (new_path[strlen(new_path)-1] != '/') {
-                            strcat(new_path, "/");
+                        int new_path_len = strlen(new_path);
+                        if (new_path[new_path_len-1] != '/') {
+                            new_path[new_path_len] = '/';
+                            new_path[new_path_len+1] = '\0';
                         }
-                        strcat(new_path, dir);
+                        // Concatenate directory name
+                        int dir_len = strlen(dir);
+                        int final_len = strlen(new_path);
+                        for (int k = 0; k < dir_len; k++) {
+                            new_path[final_len + k] = dir[k];
+                        }
+                        new_path[final_len + dir_len] = '\0';
                         strcpy(current_dir, new_path);
                         found = 1;
                         break;
