@@ -23,6 +23,9 @@ void load_users() {
         users[0].uid = 0;
         users[0].gid = 0;
         user_count = 1;
+        // Debug output
+        extern void terminal_writestring(const char*);
+        terminal_writestring("DEBUG: Created default root user (ATA not detected)\n");
         return;
     }
     uint16_t buffer[256];
@@ -30,6 +33,9 @@ void load_users() {
     memcpy(&user_count, buffer, sizeof(int));
     if (user_count > MAX_USERS) user_count = MAX_USERS;
     memcpy(users, (char*)buffer + sizeof(int), sizeof(user_t) * user_count);
+    // Debug output
+    extern void terminal_writestring(const char*);
+    terminal_writestring("DEBUG: Loaded users from ATA drive\n");
 }
 
 void save_users() {
@@ -42,6 +48,14 @@ void save_users() {
 
 void init_users() {
     load_users();
+    // Debug output
+    extern void terminal_writestring(const char*);
+    char buf[16];
+    terminal_writestring("DEBUG: init_users() - user_count after load = ");
+    itoa(user_count, buf);
+    terminal_writestring(buf);
+    terminal_writestring("\n");
+    
     if (user_count == 0 || user_count > MAX_USERS) {
         strcpy(users[0].username, "root");
         strcpy(users[0].password, "root");
@@ -49,6 +63,9 @@ void init_users() {
         users[0].gid = 0;
         user_count = 1;
         save_users();
+        terminal_writestring("DEBUG: init_users() - Created fallback root user\n");
+    } else {
+        terminal_writestring("DEBUG: init_users() - Users loaded successfully\n");
     }
 }
 
@@ -67,6 +84,24 @@ int add_user(const char* username, const char* password) {
 }
 
 int authenticate_user(const char* username, const char* password) {
+    // Debug: Print user count and available users
+    extern void terminal_writestring(const char*);
+    char buf[16];
+    
+    terminal_writestring("DEBUG: user_count = ");
+    itoa(user_count, buf);
+    terminal_writestring(buf);
+    terminal_writestring("\n");
+    
+    for (int i = 0; i < user_count; i++) {
+        terminal_writestring("DEBUG: User ");
+        itoa(i, buf);
+        terminal_writestring(buf);
+        terminal_writestring(": ");
+        terminal_writestring(users[i].username);
+        terminal_writestring("\n");
+    }
+    
     // First check if user exists
     int user_index = -1;
     for (int i = 0; i < user_count; i++) {
@@ -78,13 +113,19 @@ int authenticate_user(const char* username, const char* password) {
     
     // User not found
     if (user_index == -1) {
+        terminal_writestring("DEBUG: User not found\n");
         return 0;
     }
+    
+    terminal_writestring("DEBUG: User found, checking password\n");
     
     // Check password
     if (strcmp(users[user_index].password, password) == 0) {
         strcpy(current_user, username);
+        terminal_writestring("DEBUG: Password correct\n");
         return 1;
+    } else {
+        terminal_writestring("DEBUG: Password incorrect\n");
     }
     
     return 0;

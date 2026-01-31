@@ -125,6 +125,11 @@ void shell_main() {
 
     terminal_writestring("Shell initialized, starting login\n");
 
+    // Debug: Check current_user before login
+    terminal_writestring("DEBUG: current_user before login = ");
+    terminal_writestring(current_user);
+    terminal_writestring("\n");
+
     // Login
     char username[32];
     char password[32];

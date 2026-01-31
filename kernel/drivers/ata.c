@@ -59,11 +59,20 @@ int ata_identify(uint8_t drive) {
     outb(ATA_COMMAND, ATA_CMD_IDENTIFY);
 
     uint8_t status = inb(ATA_STATUS);
-    if (status == 0) return 0; // No drive
+    if (status == 0) {
+        terminal_writestring("DEBUG: ATA identify failed - status is 0\n");
+        return 0; // No drive
+    }
 
-    if (!ata_wait()) return 0; // Timeout
+    if (!ata_wait()) {
+        terminal_writestring("DEBUG: ATA identify failed - timeout\n");
+        return 0; // Timeout
+    }
     status = inb(ATA_STATUS);
-    if (status & 0x01) return 0; // ERR bit set
+    if (status & 0x01) {
+        terminal_writestring("DEBUG: ATA identify failed - ERR bit set\n");
+        return 0; // ERR bit set
+    }
 
     uint16_t identify_data[256];
     for (int i = 0; i < 256; i++) {
