@@ -188,22 +188,31 @@ static void execute_binary(const char* name) {
 }
 
 void kernel_execute_command(const char* input) {
-    if (strcmp(input, "help") == 0) {
+    char cmd[64];
+    int i = 0;
+    while (input[i] && input[i] != ' ' && i < 63) {
+        cmd[i] = input[i];
+        i++;
+    }
+    cmd[i] = '\0';
+    const char* args = input[i] == ' ' ? input + i + 1 : "";
+
+    if (strcmp(cmd, "help") == 0) {
         terminal_writestring("Lakos OS Commands: help, cls, ver, pwd, ls, cd, echo, uname, date, cat, mkdir, disks, read_sector, write_sector, mount, useradd, passwd, login, userdel, crypt, whoami, touch, rm, cp, shutdown, reboot, gui\nAvailable programs: hello, test, editor, calc\n");
     }
-    else if (strcmp(input, "cls") == 0) {
+    else if (strcmp(cmd, "cls") == 0) {
         terminal_initialize();
     }
-    else if (strcmp(input, "ver") == 0) {
+    else if (strcmp(cmd, "ver") == 0) {
         terminal_writestring("lakKERNEL ");
         terminal_writestring(KERNEL_VERSION);
         terminal_writestring(" [Kernel Mode]\n");
     }
-    else if (strcmp(input, "pwd") == 0) {
+    else if (strcmp(cmd, "pwd") == 0) {
         terminal_writestring(current_dir);
         terminal_writestring("\n");
     }
-    else if (strcmp(input, "ls") == 0) {
+    else if (strcmp(cmd, "ls") == 0) {
         if (strcmp(current_dir, "/") == 0) {
             for (int i = 0; i < dir_count; i++) {
                 terminal_writestring(dirs[i]);
@@ -241,8 +250,8 @@ void kernel_execute_command(const char* input) {
             terminal_writestring(".\n");
         }
     }
-    else if (strncmp(input, "cd ", 3) == 0) {
-        const char* dir = input + 3;
+    else if (strcmp(cmd, "cd") == 0) {
+        const char* dir = args;
         if (strlen(dir) == 0) {
             strcpy(current_dir, "/home");
         } else if (strcmp(dir, "/") == 0) {
@@ -310,29 +319,25 @@ void kernel_execute_command(const char* input) {
         }
     }
 
-    else if (strncmp(input, "echo ", 5) == 0) {
-        const char* args = input + 5;
+    else if (strcmp(cmd, "echo") == 0) {
         terminal_writestring(args);
         terminal_writestring("\n");
     }
-    else if (strcmp(input, "echo") == 0) {
-        terminal_writestring("\n");
-    }
-    else if (strcmp(input, "uname") == 0) {
+    else if (strcmp(cmd, "uname") == 0) {
         terminal_writestring("Lakos\n");
     }
-    else if (strcmp(input, "date") == 0) {
+    else if (strcmp(cmd, "date") == 0) {
         terminal_writestring("2026-01-10\n");
     }
-    else if (strcmp(input, "whoami") == 0) {
+    else if (strcmp(cmd, "whoami") == 0) {
         terminal_writestring(current_user);
         terminal_writestring("\n");
     }
-    else if (strcmp(input, "calc") == 0) {
+    else if (strcmp(cmd, "calc") == 0) {
         terminal_writestring("Simple Calculator: 2 + 2 = 4\n");
     }
-    else if (strncmp(input, "cat ", 4) == 0) {
-        const char* filename = input + 4;
+    else if (strcmp(cmd, "cat") == 0) {
+        const char* filename = args;
         if (strlen(filename) == 0) {
             terminal_writestring("cat: missing file name\n");
         } else {
@@ -346,8 +351,8 @@ void kernel_execute_command(const char* input) {
             }
         }
     }
-    else if (strncmp(input, "mkdir ", 6) == 0) {
-        const char* dirname = input + 6;
+    else if (strcmp(cmd, "mkdir") == 0) {
+        const char* dirname = args;
         if (strlen(dirname) == 0) {
             terminal_writestring("mkdir: missing directory name\n");
         } else {
@@ -397,8 +402,8 @@ void kernel_execute_command(const char* input) {
             }
         }
     }
-    else if (strncmp(input, "touch ", 6) == 0) {
-        const char* filename = input + 6;
+    else if (strcmp(cmd, "touch") == 0) {
+        const char* filename = args;
         if (strlen(filename) == 0) {
             terminal_writestring("touch: missing file name\n");
         } else {
@@ -414,8 +419,8 @@ void kernel_execute_command(const char* input) {
             }
         }
     }
-    else if (strncmp(input, "rm ", 3) == 0) {
-        const char* filename = input + 3;
+    else if (strcmp(cmd, "rm") == 0) {
+        const char* filename = args;
         if (strlen(filename) == 0) {
             terminal_writestring("rm: missing file name\n");
         } else {
@@ -433,18 +438,17 @@ void kernel_execute_command(const char* input) {
             }
         }
     }
-    else if (strstr(input, " cp ")) {
-        char temp[256];
-        strcpy(temp, input);
-        char* cp_pos = strstr(temp, " cp ");
-        if (cp_pos) {
-            *cp_pos = '\0';
-            const char* source = cp_pos + 4;
-            char* space = strstr(source, " ");
-            if (space) {
-                *space = '\0';
-                const char* dest = space + 1;
-                file_t* s = find_file(source);
+    else if (strcmp(cmd, "cp") == 0) {
+        const char* source = args;
+        char* space = strstr(source, " ");
+        if (space) {
+            char src_name[32];
+            int len = space - source;
+            if (len >= 32) len = 31;
+            memcpy(src_name, source, len);
+            src_name[len] = '\0';
+            const char* dest = space + 1;
+            file_t* s = find_file(src_name);
                 if (s) {
                     file_t* d = find_file(dest);
                     if (!d) d = create_file(dest);
@@ -452,7 +456,7 @@ void kernel_execute_command(const char* input) {
                         strcpy(d->content, s->content);
                         d->size = s->size;
                         terminal_writestring("cp: copied '");
-                        terminal_writestring(source);
+                        terminal_writestring(src_name);
                         terminal_writestring("' to '");
                         terminal_writestring(dest);
                         terminal_writestring("'\n");
@@ -461,19 +465,18 @@ void kernel_execute_command(const char* input) {
                     }
                 } else {
                     terminal_writestring("cp: ");
-                    terminal_writestring(source);
+                    terminal_writestring(src_name);
                     terminal_writestring(": No such file\n");
                 }
-            } else {
-                terminal_writestring("Usage: cp <source> <dest>\n");
-            }
+        } else {
+            terminal_writestring("Usage: cp <source> <dest>\n");
         }
     }
     else if (strstr(input, " >> ")) {
         char temp[256];
         strcpy(temp, input);
         char* sep = strstr(temp, " >> ");
-        if (sep && strncmp(temp, "echo ", 5) == 0) {
+        if (sep && strcmp(cmd, "echo") == 0) {
             *sep = '\0';
             const char* text = temp + 5;
             const char* filename = sep + 4;
@@ -489,7 +492,7 @@ void kernel_execute_command(const char* input) {
                 }
             }
         }
-    } else if (strcmp(input, "disks") == 0) {
+    } else if (strcmp(cmd, "disks") == 0) {
         int count = ata_detect_disks();
         terminal_writestring("Detected disks: ");
         for (int i = 0; i < count; i++) {
@@ -498,12 +501,12 @@ void kernel_execute_command(const char* input) {
             terminal_writestring("1 ");
         }
         terminal_writestring("\n");
-    } else if (strncmp(input, "read_sector ", 12) == 0) {
-        const char* args = input + 12;
-        int drive = atoi(args);
-        while (*args && *args != ' ') args++;
-        if (*args == ' ') args++;
-        int lba = atoi(args);
+    } else if (strcmp(cmd, "read_sector") == 0) {
+        const char* p = args;
+        int drive = atoi(p);
+        while (*p && *p != ' ') p++;
+        if (*p == ' ') p++;
+        int lba = atoi(p);
         if (drive >= 0 && lba >= 0) {
             uint16_t buffer[256];
             ata_read_sector(drive, lba, buffer);
@@ -518,12 +521,12 @@ void kernel_execute_command(const char* input) {
         } else {
             terminal_writestring("Usage: read_sector <drive> <lba>\n");
         }
-    } else if (strncmp(input, "write_sector ", 13) == 0) {
-        const char* args = input + 13;
-        int drive = atoi(args);
-        while (*args && *args != ' ') args++;
-        if (*args == ' ') args++;
-        int lba = atoi(args);
+    } else if (strcmp(cmd, "write_sector") == 0) {
+        const char* p = args;
+        int drive = atoi(p);
+        while (*p && *p != ' ') p++;
+        if (*p == ' ') p++;
+        int lba = atoi(p);
         if (drive >= 0 && lba >= 0) {
             uint16_t buffer[256];
             memset(buffer, 0, 512);
@@ -533,8 +536,7 @@ void kernel_execute_command(const char* input) {
         } else {
             terminal_writestring("Usage: write_sector <drive> <lba>\n");
         }
-    } else if (strncmp(input, "mount ", 6) == 0) {
-        const char* args = input + 6;
+    } else if (strcmp(cmd, "mount") == 0) {
         if (strlen(args) == 0) {
             terminal_writestring("mount: missing arguments\nUsage: mount <device> <path>\n");
         } else {
@@ -542,12 +544,11 @@ void kernel_execute_command(const char* input) {
             terminal_writestring(args);
             terminal_writestring("\n");
         }
-    } else if (strncmp(input, "useradd ", 8) == 0) {
+    } else if (strcmp(cmd, "useradd") == 0) {
         if (get_current_uid() != 0) {
             terminal_writestring("Permission denied\n");
             return;
         }
-        const char* args = input + 8;
         char username[32], password[32];
         char* space = strstr(args, " ");
         if (space) {
@@ -571,10 +572,9 @@ void kernel_execute_command(const char* input) {
         } else {
             terminal_writestring("Usage: useradd <username> <password>\n");
         }
-    } else if (strcmp(input, "login") == 0) {
+    } else if (strcmp(cmd, "login") == 0 && strlen(args) == 0) {
         terminal_writestring("Usage: login <username> <password>\n");
-    } else if (strncmp(input, "passwd ", 7) == 0) {
-        const char* args = input + 7;
+    } else if (strcmp(cmd, "passwd") == 0) {
         char username[32], newpass[32];
         char* space = strstr(args, " ");
         if (space) {
@@ -605,8 +605,7 @@ void kernel_execute_command(const char* input) {
         } else {
             terminal_writestring("Usage: passwd <username> <newpassword>\n");
         }
-    } else if (strncmp(input, "login ", 6) == 0) {
-        const char* args = input + 6;
+    } else if (strcmp(cmd, "login") == 0) {
         char username[32], password[32];
         char* space = strstr(args, " ");
         if (space) {
@@ -629,12 +628,11 @@ void kernel_execute_command(const char* input) {
         } else {
             terminal_writestring("Usage: login <username> <password>\n");
         }
-    } else if (strncmp(input, "userdel ", 8) == 0) {
+    } else if (strcmp(cmd, "userdel") == 0) {
         if (get_current_uid() != 0) {
             terminal_writestring("Permission denied\n");
             return;
         }
-        const char* args = input + 8;
         if (strlen(args) > 0) {
             if (delete_user(args)) {
                 terminal_writestring("User deleted: ");
@@ -647,8 +645,7 @@ void kernel_execute_command(const char* input) {
         } else {
             terminal_writestring("Usage: userdel <username>\n");
         }
-    } else if (strncmp(input, "crypt ", 6) == 0) {
-        const char* args = input + 6;
+    } else if (strcmp(cmd, "crypt") == 0) {
         if (args[0] == '-' && (args[1] == 'e' || args[1] == 'd') && args[2] == ' ') {
             char mode = args[1];
             const char* p = args + 3;
@@ -680,18 +677,18 @@ void kernel_execute_command(const char* input) {
         } else {
             terminal_writestring("Usage: crypt -e <key> <password> or crypt -d <key> <encrypted>\n");
         }
-    } else if (strcmp(input, "shutdown") == 0) {
+    } else if (strcmp(cmd, "shutdown") == 0) {
         shutdown();
-    } else if (strcmp(input, "reboot") == 0) {
+    } else if (strcmp(cmd, "reboot") == 0) {
         reboot();
-    } else if (strcmp(input, "gui") == 0) {
+    } else if (strcmp(cmd, "gui") == 0) {
         start_gui();
     } else {
-        if (is_file_in_path(input, pathbin)) {
-            execute_binary(input);
+        if (is_file_in_path(cmd, pathbin)) {
+            execute_binary(cmd);
         } else {
             terminal_writestring("Error: command '");
-            terminal_writestring(input);
+            terminal_writestring(cmd);
             terminal_writestring("' not found.\n");
         }
     }
