@@ -145,6 +145,8 @@ void init_users() {
     
     // Check if we have any valid users
     int has_valid_users = 0;
+    int has_root_user = 0;
+    
     for (int i = 0; i < user_count; i++) {
         // Check if username is valid (not empty and contains only printable characters)
         int is_valid = 1;
@@ -171,14 +173,28 @@ void init_users() {
         
         if (is_valid) {
             has_valid_users = 1;
-            terminal_writestring("DEBUG: Found valid user: ");
-            terminal_writestring(users[i].username);
-            terminal_writestring("\n");
-            break;
+            // Check if this is the root user
+            if (strcmp(users[i].username, "root") == 0) {
+                has_root_user = 1;
+                terminal_writestring("DEBUG: Found root user: ");
+                terminal_writestring(users[i].username);
+                terminal_writestring("\n");
+            }
         }
     }
     
-    if (!has_valid_users) {
+    // Always ensure we have a root user with root:root credentials
+    if (!has_root_user) {
+        terminal_writestring("DEBUG: No root user found, creating default root user\n");
+        // Remove any existing users and create root user
+        user_count = 0;
+        strcpy(users[0].username, "root");
+        strcpy(users[0].password, "root");
+        users[0].uid = 0;
+        users[0].gid = 0;
+        user_count = 1;
+        save_users();
+    } else if (!has_valid_users) {
         terminal_writestring("DEBUG: No valid users found, creating default root user\n");
         create_default_users();
     } else {
