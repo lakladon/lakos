@@ -1,12 +1,14 @@
-#include "../../kernel/include/lib.h"
-#include "../../kernel/include/commands.h"
+// Simple calculator for Lakos OS
+// This is a standalone user program that will be loaded and executed by the kernel
 
-// Simple calculator for Lakos OS kernel environment
-// Supports basic arithmetic operations: +, -, *, /
-// No standard library dependencies
+#include <stdint.h>
 
-static char input_buffer[256];
-static int input_pos = 0;
+// Simple terminal output function (kernel will provide this)
+extern void terminal_writestring(const char* s);
+extern void terminal_putchar(char c);
+
+// Simple input function (kernel will provide this)
+extern char get_char();
 
 // Helper function to check if character is digit
 static int is_digit(char c) {
@@ -154,34 +156,33 @@ int main() {
     terminal_writestring("Example: 10 + 5\n");
     terminal_writestring("> ");
     
+    char input_buffer[256];
+    
     while (1) {
-        // Read input character by character
-        input_pos = 0;
+        // Read input line by line
+        int pos = 0;
+        char c;
+        
         while (1) {
-            if (inb(0x64) & 0x1) {
-                uint8_t scancode = inb(0x60);
-                if (!(scancode & 0x80)) { // Key press (not release)
-                    char c = scancode < 128 ? scancode : 0;
-                    if (c == '\r' || c == '\n') { // Enter key
-                        input_buffer[input_pos] = '\0';
-                        break;
-                    } else if (c == '\b' && input_pos > 0) { // Backspace
-                        input_pos--;
-                        terminal_putchar('\b');
-                        terminal_putchar(' ');
-                        terminal_putchar('\b');
-                    } else if (c >= 32 && c < 127 && input_pos < 255) { // Printable character
-                        input_buffer[input_pos++] = c;
-                        terminal_putchar(c);
-                    }
-                }
+            c = get_char();
+            if (c == '\r' || c == '\n') {
+                input_buffer[pos] = '\0';
+                break;
+            } else if (c == '\b' && pos > 0) {
+                pos--;
+                terminal_putchar('\b');
+                terminal_putchar(' ');
+                terminal_putchar('\b');
+            } else if (c >= 32 && c < 127 && pos < 255) {
+                input_buffer[pos++] = c;
+                terminal_putchar(c);
             }
         }
         
         terminal_putchar('\n');
         
         // Check for quit command
-        if (strcmp(input_buffer, "quit") == 0 || strcmp(input_buffer, "exit") == 0) {
+        if (input_buffer[0] == 'q' && input_buffer[1] == 'u' && input_buffer[2] == 'i' && input_buffer[3] == 't') {
             terminal_writestring("Goodbye!\n");
             break;
         }

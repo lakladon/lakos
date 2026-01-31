@@ -119,6 +119,34 @@ static void reboot() {
     outb(0x64, 0xFE);
 }
 
+// Global variables for user program runtime
+static char user_input_buffer[256];
+static int user_input_pos = 0;
+static int user_input_ready = 0;
+
+// Function to get a character from keyboard (for user programs)
+char get_char() {
+    while (1) {
+        if (inb(0x64) & 0x1) {
+            uint8_t scancode = inb(0x60);
+            if (!(scancode & 0x80)) { // Key press (not release)
+                char c = scancode < 128 ? scancode : 0;
+                if (c == '\r' || c == '\n') {
+                    return '\n';
+                } else if (c == '\b' && user_input_pos > 0) {
+                    user_input_pos--;
+                    terminal_putchar('\b');
+                    terminal_putchar(' ');
+                    terminal_putchar('\b');
+                } else if (c >= 32 && c < 127 && user_input_pos < 255) {
+                    user_input_buffer[user_input_pos++] = c;
+                    terminal_putchar(c);
+                }
+            }
+        }
+    }
+}
+
 static void execute_binary(const char* name) {
     if (!tar_archive) {
         terminal_writestring("No tar archive loaded.\n");
