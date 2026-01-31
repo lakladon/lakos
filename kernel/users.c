@@ -62,12 +62,26 @@ int add_user(const char* username, const char* password) {
 }
 
 int authenticate_user(const char* username, const char* password) {
+    // First check if user exists
+    int user_index = -1;
     for (int i = 0; i < user_count; i++) {
-        if (strcmp(users[i].username, username) == 0 && strcmp(users[i].password, password) == 0) {
-            strcpy(current_user, username);
-            return 1;
+        if (strcmp(users[i].username, username) == 0) {
+            user_index = i;
+            break;
         }
     }
+    
+    // User not found
+    if (user_index == -1) {
+        return 0;
+    }
+    
+    // Check password
+    if (strcmp(users[user_index].password, password) == 0) {
+        strcpy(current_user, username);
+        return 1;
+    }
+    
     return 0;
 }
 

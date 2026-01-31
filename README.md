@@ -17,7 +17,7 @@ Lakos OS is a simple, experimental operating system written in C and Assembly, d
 
 ## Version
 
-Current version: 0.3.7 (Build 44)
+Current version: 4.1 (Build 44)
 
 ## Building
 

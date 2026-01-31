@@ -134,7 +134,16 @@ void shell_main() {
         terminal_writestring("Password: ");
         read_line(password, 31, 0);
         terminal_putchar('\n');
+        
+        // Debug output for troubleshooting
+        terminal_writestring("Attempting login for user: ");
+        terminal_writestring(username);
+        terminal_writestring("\n");
+        
         if (authenticate_user(username, password)) {
+            terminal_writestring("Login successful for user: ");
+            terminal_writestring(current_user);
+            terminal_writestring("\n");
             break;
         } else {
             terminal_writestring("Invalid login\n");
