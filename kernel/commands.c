@@ -652,9 +652,22 @@ void kernel_execute_command(const char* input) {
             if (passlen >= 32) passlen = 31;
             for (int i = 0; i < passlen; i++) password[i] = pass[i];
             password[passlen] = '\0';
-            if (authenticate_user(username, password)) {
+            
+            // Trim whitespace from username before authentication
+            char trimmed_username[32];
+            int src = 0, dst = 0;
+            while (username[src] == ' ' || username[src] == '\t') src++; // skip leading whitespace
+            while (username[src] != '\0') {
+                if (username[src] != ' ' && username[src] != '\t') {
+                    trimmed_username[dst++] = username[src];
+                }
+                src++;
+            }
+            trimmed_username[dst] = '\0';
+            
+            if (authenticate_user(trimmed_username, password)) {
                 terminal_writestring("Logged in as ");
-                terminal_writestring(username);
+                terminal_writestring(current_user);
                 terminal_writestring("\n");
             } else {
                 terminal_writestring("Invalid username or password\n");

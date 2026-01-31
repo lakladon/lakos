@@ -100,7 +100,7 @@ jobs:
             ### Файлы
             - `lakos.bin` — бинарный файл ядра
             - `lakos.iso` — загрузочный ISO образ
-          files: lakos.bin, lakos.iso
+          files: lakos.bin, lakos.iso, modules.tar
           draft: false
           prerelease: false
         env:

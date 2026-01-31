@@ -141,11 +141,23 @@ void shell_main() {
         terminal_putchar('\n');
         
         // Debug output for troubleshooting
+        // Trim whitespace from username before authentication
+        char trimmed_username[32];
+        int src = 0, dst = 0;
+        while (username[src] == ' ' || username[src] == '\t') src++; // skip leading whitespace
+        while (username[src] != '\0') {
+            if (username[src] != ' ' && username[src] != '\t') {
+                trimmed_username[dst++] = username[src];
+            }
+            src++;
+        }
+        trimmed_username[dst] = '\0';
+        
         terminal_writestring("Attempting login for user: ");
-        terminal_writestring(username);
+        terminal_writestring(trimmed_username);
         terminal_writestring("\n");
         
-        if (authenticate_user(username, password)) {
+        if (authenticate_user(trimmed_username, password)) {
             terminal_writestring("Login successful for user: ");
             terminal_writestring(current_user);
             terminal_writestring("\n");

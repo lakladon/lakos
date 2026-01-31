@@ -1,3 +1,10 @@
+
+
+
+
+
+
+
 #include "include/users.h"
 #include <stdint.h>
 
@@ -214,10 +221,22 @@ int authenticate_user(const char* username, const char* password) {
         terminal_writestring("\n");
     }
     
+    // First check if user exists - trim whitespace from input username
+    char trimmed_username[32];
+    int src = 0, dst = 0;
+    while (username[src] == ' ' || username[src] == '\t') src++; // skip leading whitespace
+    while (username[src] != '\0') {
+        if (username[src] != ' ' && username[src] != '\t') {
+            trimmed_username[dst++] = username[src];
+        }
+        src++;
+    }
+    trimmed_username[dst] = '\0';
+    
     // First check if user exists
     int user_index = -1;
     for (int i = 0; i < user_count; i++) {
-        if (strcmp(users[i].username, username) == 0) {
+        if (strcmp(users[i].username, trimmed_username) == 0) {
             user_index = i;
             break;
         }
@@ -233,7 +252,7 @@ int authenticate_user(const char* username, const char* password) {
     
     // Check password
     if (strcmp(users[user_index].password, password) == 0) {
-        strcpy(current_user, username);
+        strcpy(current_user, users[user_index].username);
         terminal_writestring("DEBUG: Password correct\n");
         return 1;
     } else {
