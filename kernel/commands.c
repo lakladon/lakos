@@ -122,7 +122,6 @@ static void reboot() {
 // Global variables for user program runtime
 static char user_input_buffer[256];
 static int user_input_pos = 0;
-static int user_input_ready = 0;
 
 // Function to get a character from keyboard (for user programs)
 char get_char() {

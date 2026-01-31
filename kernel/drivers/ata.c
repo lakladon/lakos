@@ -4,30 +4,6 @@
 
 extern void terminal_writestring(const char*);
 
-// Local itoa function for ATA driver
-void itoa(int n, char* buf) {
-    if (n == 0) {
-        buf[0] = '0';
-        buf[1] = '\0';
-        return;
-    }
-    int i = 0;
-    int sign = n < 0 ? -1 : 1;
-    unsigned int num = n < 0 ? -n : n;
-    while (num > 0) {
-        buf[i++] = '0' + num % 10;
-        num /= 10;
-    }
-    if (sign < 0) buf[i++] = '-';
-    buf[i] = '\0';
-    // reverse
-    for (int j = 0; j < i/2; j++) {
-        char t = buf[j];
-        buf[j] = buf[i-1-j];
-        buf[i-1-j] = t;
-    }
-}
-
 void print_hex(uint32_t n, int digits) {
     char buf[9];
     buf[digits] = 0;
