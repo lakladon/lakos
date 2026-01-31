@@ -188,6 +188,10 @@ static void execute_binary(const char* name) {
 }
 
 void kernel_execute_command(const char* input) {
+    // Skip leading spaces
+    while (*input == ' ') input++;
+    if (*input == '\0') return;
+
     char cmd[64];
     int i = 0;
     while (input[i] && input[i] != ' ' && i < 63) {
@@ -195,7 +199,9 @@ void kernel_execute_command(const char* input) {
         i++;
     }
     cmd[i] = '\0';
-    const char* args = input[i] == ' ' ? input + i + 1 : "";
+    
+    const char* args = input + i;
+    while (*args == ' ') args++;
 
     if (strcmp(cmd, "help") == 0) {
         terminal_writestring("Lakos OS Commands: help, cls, ver, pwd, ls, cd, echo, uname, date, cat, mkdir, disks, read_sector, write_sector, mount, useradd, passwd, login, userdel, crypt, whoami, touch, rm, cp, shutdown, reboot, gui\nAvailable programs: hello, test, editor, calc\n");
@@ -333,9 +339,6 @@ void kernel_execute_command(const char* input) {
         terminal_writestring(current_user);
         terminal_writestring("\n");
     }
-    else if (strcmp(cmd, "calc") == 0) {
-        terminal_writestring("Simple Calculator: 2 + 2 = 4\n");
-    }
     else if (strcmp(cmd, "cat") == 0) {
         const char* filename = args;
         if (strlen(filename) == 0) {
@@ -439,35 +442,39 @@ void kernel_execute_command(const char* input) {
         }
     }
     else if (strcmp(cmd, "cp") == 0) {
-        const char* source = args;
-        char* space = strstr(source, " ");
-        if (space) {
-            char src_name[32];
-            int len = space - source;
-            if (len >= 32) len = 31;
-            memcpy(src_name, source, len);
-            src_name[len] = '\0';
-            const char* dest = space + 1;
+        const char* p = args;
+        char src_name[32];
+        int j = 0;
+        while (p[j] && p[j] != ' ' && j < 31) {
+            src_name[j] = p[j];
+            j++;
+        }
+        src_name[j] = '\0';
+        
+        const char* dest = p + j;
+        while (*dest == ' ') dest++;
+        
+        if (strlen(src_name) > 0 && strlen(dest) > 0) {
             file_t* s = find_file(src_name);
-                if (s) {
-                    file_t* d = find_file(dest);
-                    if (!d) d = create_file(dest);
-                    if (d) {
-                        strcpy(d->content, s->content);
-                        d->size = s->size;
-                        terminal_writestring("cp: copied '");
-                        terminal_writestring(src_name);
-                        terminal_writestring("' to '");
-                        terminal_writestring(dest);
-                        terminal_writestring("'\n");
-                    } else {
-                        terminal_writestring("cp: failed to create destination\n");
-                    }
-                } else {
-                    terminal_writestring("cp: ");
+            if (s) {
+                file_t* d = find_file(dest);
+                if (!d) d = create_file(dest);
+                if (d) {
+                    strcpy(d->content, s->content);
+                    d->size = s->size;
+                    terminal_writestring("cp: copied '");
                     terminal_writestring(src_name);
-                    terminal_writestring(": No such file\n");
+                    terminal_writestring("' to '");
+                    terminal_writestring(dest);
+                    terminal_writestring("'\n");
+                } else {
+                    terminal_writestring("cp: failed to create destination\n");
                 }
+            } else {
+                terminal_writestring("cp: ");
+                terminal_writestring(src_name);
+                terminal_writestring(": No such file\n");
+            }
         } else {
             terminal_writestring("Usage: cp <source> <dest>\n");
         }
@@ -686,10 +693,11 @@ void kernel_execute_command(const char* input) {
     } else {
         if (is_file_in_path(cmd, pathbin)) {
             execute_binary(cmd);
-        } else {
             terminal_writestring("Error: command '");
             terminal_writestring(cmd);
             terminal_writestring("' not found.\n");
         }
     }
-}
+}            terminal_writestring("Error: command '");
+            terminal_writestring(cmd);
+            terminal_writestring("' not found.\n");
