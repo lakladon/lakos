@@ -19,8 +19,10 @@ CFLAGS = -m32 -ffreestanding -O0 -Wall -Wextra -I. -Ikernel -Ikernel/include -Ik
 LDFLAGS = -m elf_i386 -T linker.ld
 OBJ = \
       kernel/start.o \
-       kernel/kernel.o \
+      kernel/kernel.o \
       kernel/shell.o \
+      kernel/lib.o \
+      kernel/commands.o \
       kernel/vga.o \
       kernel/gui.o \
       kernel/users.o \

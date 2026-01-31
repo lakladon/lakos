@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "io.h"
+#include "include/lib.h"
 
 extern void terminal_writestring(const char*);
 

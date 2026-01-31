@@ -7,9 +7,7 @@ user_t users[MAX_USERS];
 int user_count = 0;
 char current_user[32] = "";
 
-extern void strcpy(char* dest, const char* src);
-extern int strcmp(const char* s1, const char* s2);
-extern int strlen(const char* s);
+#include "include/lib.h"
 
 extern void ata_read_sector(uint8_t drive, uint32_t lba, uint16_t* buffer);
 extern void ata_write_sector(uint8_t drive, uint32_t lba, uint16_t* buffer);

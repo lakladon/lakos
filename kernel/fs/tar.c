@@ -1,8 +1,8 @@
 #include <stdint.h>
 #include <stddef.h>
+#include "include/lib.h"
 
 extern void terminal_writestring(const char* s);
-extern void itoa(int n, char* buf);
 
 struct tar_header {
     char name[100];
@@ -18,7 +18,7 @@ struct tar_header {
 } __attribute__((packed));
 
 // Fixed function get_size for octal
-unsigned int get_size(const char *in) {
+static unsigned int get_size(const char *in) {
     unsigned int size = 0;
     int i = 0;
     // Skip leading spaces

@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "include/version.h"
+#include "include/lib.h"
 
 static inline void outb(uint16_t port, uint8_t val) {
     __asm__ volatile("outb %0, %1" : : "a"(val), "Nd"(port));
@@ -82,28 +83,6 @@ void terminal_putchar(char c) {
     // update_cursor(term_col, term_row);
 }
 
-void itoa(int n, char* buf) {
-    if (n == 0) {
-        buf[0] = '0';
-        buf[1] = '\0';
-        return;
-    }
-    int i = 0;
-    int sign = n < 0 ? -1 : 1;
-    n = n < 0 ? -n : n;
-    while (n > 0) {
-        buf[i++] = '0' + n % 10;
-        n /= 10;
-    }
-    if (sign < 0) buf[i++] = '-';
-    buf[i] = '\0';
-    // reverse
-    for (int j = 0; j < i/2; j++) {
-        char t = buf[j];
-        buf[j] = buf[i-1-j];
-        buf[i-1-j] = t;
-    }
-}
 
 void terminal_writestring(const char* s) {
     while (*s) {
@@ -142,6 +121,7 @@ extern int ata_detect_disks();
 extern void ata_read_sectors(uint8_t drive, uint32_t lba, uint16_t* buffer, uint8_t count);
 extern void mouse_install();
 extern void shell_main();
+extern void init_kernel_commands();
 
 void* tar_archive = 0;
 
@@ -189,6 +169,7 @@ void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     terminal_writestring("\n");
 
     __asm__ volatile("sti");
+    init_kernel_commands();
     terminal_writestring("Before shell\n");
     shell_main();
 
