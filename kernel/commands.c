@@ -693,11 +693,10 @@ void kernel_execute_command(const char* input) {
     } else {
         if (is_file_in_path(cmd, pathbin)) {
             execute_binary(cmd);
+        } else {
             terminal_writestring("Error: command '");
             terminal_writestring(cmd);
             terminal_writestring("' not found.\n");
         }
     }
-}            terminal_writestring("Error: command '");
-            terminal_writestring(cmd);
-            terminal_writestring("' not found.\n");
+}
