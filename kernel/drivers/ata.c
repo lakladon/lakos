@@ -4,6 +4,30 @@
 
 extern void terminal_writestring(const char*);
 
+// Local itoa function for ATA driver
+void itoa(int n, char* buf) {
+    if (n == 0) {
+        buf[0] = '0';
+        buf[1] = '\0';
+        return;
+    }
+    int i = 0;
+    int sign = n < 0 ? -1 : 1;
+    unsigned int num = n < 0 ? -n : n;
+    while (num > 0) {
+        buf[i++] = '0' + num % 10;
+        num /= 10;
+    }
+    if (sign < 0) buf[i++] = '-';
+    buf[i] = '\0';
+    // reverse
+    for (int j = 0; j < i/2; j++) {
+        char t = buf[j];
+        buf[j] = buf[i-1-j];
+        buf[i-1-j] = t;
+    }
+}
+
 void print_hex(uint32_t n, int digits) {
     char buf[9];
     buf[digits] = 0;
@@ -92,6 +116,18 @@ int ata_identify(uint8_t drive) {
 void ata_read_sector(uint8_t drive, uint32_t lba, uint16_t* buffer) {
     if (drive > 1) return;
     if (lba > 0xFFFFFF) return; // LBA28 limit
+    
+    // Debug output
+    extern void terminal_writestring(const char*);
+    terminal_writestring("DEBUG: Reading sector ");
+    char buf[16];
+    itoa(lba, buf);
+    terminal_writestring(buf);
+    terminal_writestring(" from drive ");
+    itoa(drive, buf);
+    terminal_writestring(buf);
+    terminal_writestring("\n");
+    
     ata_select_drive(drive);
     outb(ATA_SECTOR_COUNT, 1);
     outb(ATA_LBA_LOW, lba & 0xFF);
@@ -99,12 +135,21 @@ void ata_read_sector(uint8_t drive, uint32_t lba, uint16_t* buffer) {
     outb(ATA_LBA_HIGH, (lba >> 16) & 0xFF);
     outb(ATA_COMMAND, ATA_CMD_READ);
 
-    if (!ata_wait()) return; // Timeout, don't read
+    if (!ata_wait()) {
+        terminal_writestring("DEBUG: ATA read timeout\n");
+        return; // Timeout, don't read
+    }
     uint8_t status = inb(ATA_STATUS);
-    if (status & 0x01) return; // ERR bit set
+    if (status & 0x01) {
+        terminal_writestring("DEBUG: ATA read error - ERR bit set\n");
+        return; // ERR bit set
+    }
+    
     for (int i = 0; i < 256; i++) {
         buffer[i] = inw(ATA_DATA);
     }
+    
+    terminal_writestring("DEBUG: ATA read completed successfully\n");
 }
 
 void ata_write_sector(uint8_t drive, uint32_t lba, uint16_t* buffer) {
