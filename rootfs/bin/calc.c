@@ -1,13 +1,11 @@
 // Simple calculator for Lakos OS
-// This is a standalone user program that will be loaded and executed by the kernel
+// This program demonstrates basic arithmetic operations
 
 #include <stdint.h>
 
-// Simple terminal output function (kernel will provide this)
+// Function declarations (provided by kernel)
 extern void terminal_writestring(const char* s);
 extern void terminal_putchar(char c);
-
-// Simple input function (kernel will provide this)
 extern char get_char();
 
 // Helper function to check if character is digit
