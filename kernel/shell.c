@@ -39,6 +39,26 @@ void read_line(char* buffer, int max, int echo) {
                 int is_letter = (scancode >= 16 && scancode <= 25) || (scancode >= 30 && scancode <= 38) || (scancode >= 44 && scancode <= 50);
                 int uppercase = shift_pressed || (caps_locked && is_letter);
                 char c = uppercase ? kbd_map_shift[scancode] : kbd_map[scancode];
+                
+                // Debug: Print scancode and character for troubleshooting
+                if (scancode == 31 || scancode == 38) {
+                    terminal_writestring("DEBUG: scancode=");
+                    char buf[4];
+                    itoa(scancode, buf);
+                    terminal_writestring(buf);
+                    terminal_writestring(" char='");
+                    terminal_putchar(c);
+                    terminal_writestring("' uppercase=");
+                    itoa(uppercase, buf);
+                    terminal_writestring(buf);
+                    terminal_writestring(" shift=");
+                    itoa(shift_pressed, buf);
+                    terminal_writestring(buf);
+                    terminal_writestring(" caps=");
+                    itoa(caps_locked, buf);
+                    terminal_writestring(buf);
+                    terminal_writestring("\n");
+                }
                 if (c == '\n') {
                     buffer[ptr] = '\0';
                     if (echo) terminal_putchar('\n');
