@@ -17,7 +17,12 @@ extern int ata_identify(uint8_t drive);
 
 void load_users() {
     if (!ata_identify(0)) {
-        user_count = 0;
+        // Create default users when no ATA drive is available
+        strcpy(users[0].username, "root");
+        strcpy(users[0].password, "root");
+        users[0].uid = 0;
+        users[0].gid = 0;
+        user_count = 1;
         return;
     }
     uint16_t buffer[256];
