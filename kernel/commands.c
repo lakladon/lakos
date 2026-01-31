@@ -104,6 +104,21 @@ static int is_file_in_path(const char* name, const char* path) {
     return 0;
 }
 
+static void shutdown() {
+    terminal_writestring("Shutting down...\n");
+    // For QEMU shutdown
+    __asm__ volatile("outw %0, %1" : : "a"((uint16_t)0x2000), "Nd"((uint16_t)0xB004));
+    // Fallback
+    while (1) {
+        __asm__ volatile("hlt");
+    }
+}
+
+static void reboot() {
+    terminal_writestring("Rebooting...\n");
+    outb(0x64, 0xFE);
+}
+
 static void execute_binary(const char* name) {
     if (!tar_archive) {
         terminal_writestring("No tar archive loaded.\n");
@@ -174,7 +189,7 @@ static void execute_binary(const char* name) {
 
 void kernel_execute_command(const char* input) {
     if (strcmp(input, "help") == 0) {
-        terminal_writestring("Lakos OS Commands: help, cls, ver, pwd, ls, cd, echo, uname, date, cat, mkdir, disks, read_sector, write_sector, mount, useradd, passwd, login, userdel, crypt, whoami, touch, rm, cp, gui\nAvailable programs: hello, test, editor, calc\n");
+        terminal_writestring("Lakos OS Commands: help, cls, ver, pwd, ls, cd, echo, uname, date, cat, mkdir, disks, read_sector, write_sector, mount, useradd, passwd, login, userdel, crypt, whoami, touch, rm, cp, shutdown, reboot, gui\nAvailable programs: hello, test, editor, calc\n");
     }
     else if (strcmp(input, "cls") == 0) {
         terminal_initialize();
@@ -665,6 +680,10 @@ void kernel_execute_command(const char* input) {
         } else {
             terminal_writestring("Usage: crypt -e <key> <password> or crypt -d <key> <encrypted>\n");
         }
+    } else if (strcmp(input, "shutdown") == 0) {
+        shutdown();
+    } else if (strcmp(input, "reboot") == 0) {
+        reboot();
     } else if (strcmp(input, "gui") == 0) {
         start_gui();
     } else {

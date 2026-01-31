@@ -8,41 +8,57 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Разрешение на создание релизов и тегов
+      contents: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Полный history для получения всех тегов
+          fetch-depth: 0
 
-      - name: Get Next Version
+      - name: Calculate Next Version
         id: version
         run: |
-          # Получаем последний тег версии
-          latest_tag=$(git tag --sort=-v:refname | head -n 1 2>/dev/null || echo "v0.0.0")
-          echo "Latest tag: $latest_tag"
+          # Получаем все существующие теги с версиями
+          existing_tags=$(git tag -l "v*" 2>/dev/null || echo "")
           
-          # Проверяем, является ли тег версией (начинается с v и содержит цифры)
-          if [[ ! "$latest_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Latest tag is not a valid version, resetting to v0.0.0"
-            latest_tag="v0.0.0"
+          if [ -z "$existing_tags" ]; then
+            # Если тегов нет, начинаем с v0.1.0
+            new_version="v0.1.0"
+          else
+            # Получаем последнюю версию (сортировка по версии)
+            latest_version=$(echo "$existing_tags" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
+            
+            if [ -z "$latest_version" ]; then
+              # Если нет валидных версионных тегов
+              new_version="v0.1.0"
+            else
+              # Увеличиваем patch версию
+              version="${latest_version#v}"
+              IFS='.' read -r major minor patch <<< "$version"
+              patch=$((patch + 1))
+              new_version="v${major}.${minor}.${patch}"
+              
+              # Проверяем, существует ли уже такой тег
+              while git rev-parse "$new_version" >/dev/null 2>&1; do
+                echo "Tag $new_version already exists, increasing patch version..."
+                patch=$((patch + 1))
+                new_version="v${major}.${minor}.${patch}"
+              done
+            fi
           fi
           
-          # Убираем 'v' из начала тега если есть
-          version="${latest_tag#v}"
-          
-          # Разбиваем на major.minor.patch
-          IFS='.' read -r major minor patch <<< "$version"
-          
-          # Увеличиваем patch версию
-          patch=$((patch + 1))
-          
-          new_version="v${major}.${minor}.${patch}"
-          echo "New version: $new_version"
-          
-          # Сохраняем новую версию в outputs
+          echo "Next version: $new_version"
           echo "version=$new_version" >> $GITHUB_OUTPUT
+
+      - name: Delete Existing Tag if Needed
+        run: |
+          tag_name="${{ steps.version.outputs.version }}"
+          if git rev-parse "$tag_name" >/dev/null 2>&1; then
+            echo "Deleting existing tag: $tag_name"
+            git tag -d "$tag_name" || true
+            git push --delete origin "$tag_name" || true
+          fi
 
       - name: Create Git Tag
         run: |
@@ -50,7 +66,7 @@ jobs:
           git config user.email "actions@github.com"
           tag_name="${{ steps.version.outputs.version }}"
           echo "Creating tag: $tag_name"
-          git tag -a "$tag_name" -m "Release $tag_name"
+          git tag "$tag_name"
           git push origin "$tag_name"
 
       - name: Install Dependencies
@@ -63,7 +79,6 @@ jobs:
       - name: Build Kernel and iso
         run: make iso
 
-      # Создание релиза с семантической версией
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -72,18 +87,19 @@ jobs:
           body: |
             ## Lakos OS ${{ steps.version.outputs.version }}
             
-            ### Автоматическая сборка
-            - Версия: **${{ steps.version.outputs.version }}**
-            - Дата сборки: `${{ github.event.head_commit.timestamp || github.run_date }}`
-            - Коммит: [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
-            - ID запуска: `${{ github.run_id }}`
+            ### Сборка информации
+            - **Версия:** ${{ steps.version.outputs.version }}
+            - **Дата сборки:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+            - **Коммит:** [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+            - **ID запуска:** ${{ github.run_id }}
+            - **Номер сборки:** ${{ github.run_number }}
             
             ### Изменения
             ${{ github.event.head_commit.message }}
             
             ### Файлы
-            - `lakos.bin` - Исполняемый файл ядра
-            - `lakos.iso` - Загрузочный ISO образ
+            - `lakos.bin` — бинарный файл ядра
+            - `lakos.iso` — загрузочный ISO образ
           files: lakos.bin, lakos.iso
           draft: false
           prerelease: false
