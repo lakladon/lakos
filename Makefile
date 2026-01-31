@@ -16,6 +16,9 @@ endif
 
 AS = nasm
 CFLAGS = -m32 -ffreestanding -O0 -Wall -Wextra -I. -Ikernel -Ikernel/include -Ikernel/drivers
+ifeq ($(DEBUG), 1)
+    CFLAGS += -DDEBUG
+endif
 LDFLAGS = -m elf_i386 -T linker.ld
 OBJ = \
       kernel/start.o \

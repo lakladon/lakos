@@ -7,6 +7,7 @@
 
 #include "include/users.h"
 #include <stdint.h>
+#include "include/debug.h"
 
 extern void* memcpy(void* dest, const void* src, unsigned int n);
 
@@ -30,17 +31,13 @@ void load_users() {
         users[0].uid = 0;
         users[0].gid = 0;
         user_count = 1;
-        // Debug output
-        extern void terminal_writestring(const char*);
-        terminal_writestring("DEBUG: Created default root user (ATA not detected)\n");
+        DEBUG_PRINT("DEBUG: Created default root user (ATA not detected)\n");
         return;
     }
     uint16_t buffer[256];
     ata_read_sector(0, USER_DATA_LBA, buffer);
     
-    // Debug: Print raw data from sector
-    extern void terminal_writestring(const char*);
-    terminal_writestring("DEBUG: Raw sector data (first 16 bytes): ");
+        DEBUG_PRINT("DEBUG: Raw sector data (first 16 bytes): ");
     for (int i = 0; i < 8; i++) {
         char buf[8];
         itoa(buffer[i], buf);
@@ -50,16 +47,20 @@ void load_users() {
     terminal_writestring("\n");
     
     memcpy(&user_count, buffer, sizeof(int));
+#ifdef DEBUG
     terminal_writestring("DEBUG: Read user_count = ");
     char buf[16];
     itoa(user_count, buf);
     terminal_writestring(buf);
     terminal_writestring("\n");
+#endif
     
     if (user_count > MAX_USERS) user_count = MAX_USERS;
     
+#ifdef DEBUG
     // Debug: Print raw user data
     terminal_writestring("DEBUG: Raw user data: ");
+#endif
     char* raw_data = (char*)buffer + sizeof(int);
     for (int i = 0; i < sizeof(user_t) * user_count && i < 64; i++) {
         if (raw_data[i] >= 32 && raw_data[i] < 127) {
@@ -72,6 +73,7 @@ void load_users() {
     
     memcpy(users, raw_data, sizeof(user_t) * user_count);
     
+#ifdef DEBUG
     // Debug: Print loaded users
     for (int i = 0; i < user_count; i++) {
         terminal_writestring("DEBUG: Loaded User ");
@@ -89,8 +91,11 @@ void load_users() {
         terminal_writestring(buf);
         terminal_writestring("\n");
     }
+#endif
     
+#ifdef DEBUG
     terminal_writestring("DEBUG: Loaded users from ATA drive\n");
+#endif
 }
 
 void save_users() {
