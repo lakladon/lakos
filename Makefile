@@ -46,7 +46,7 @@ lakos.bin: $(OBJ)
 
 .PHONY: modules.tar
 modules.tar:
-	cd rootfs && chmod -R +x bin && tar  -cf ../$@ *
+	cd rootfs && find . -name "*.c" -o -name "*.h" | tar -cf ../$@ -T -
 
 iso: lakos.bin
 	mkdir -p isodir/boot/grub
