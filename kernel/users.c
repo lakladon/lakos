@@ -162,8 +162,47 @@ void init_users() {
     terminal_writestring(buf);
     terminal_writestring("\n");
     
-    // Ensure we have valid users
-    ensure_valid_users();
+    // Check if we have any valid users
+    int has_valid_users = 0;
+    for (int i = 0; i < user_count; i++) {
+        // Check if username is valid (not empty and contains only printable characters)
+        int is_valid = 1;
+        if (users[i].username[0] == '\0') {
+            is_valid = 0;
+        } else {
+            for (int j = 0; j < 32 && users[i].username[j] != '\0'; j++) {
+                if (users[i].username[j] < 32 || users[i].username[j] > 126) {
+                    is_valid = 0;
+                    break;
+                }
+            }
+        }
+        
+        // Also check password
+        if (is_valid) {
+            for (int j = 0; j < 32 && users[i].password[j] != '\0'; j++) {
+                if (users[i].password[j] < 32 || users[i].password[j] > 126) {
+                    is_valid = 0;
+                    break;
+                }
+            }
+        }
+        
+        if (is_valid) {
+            has_valid_users = 1;
+            terminal_writestring("DEBUG: Found valid user: ");
+            terminal_writestring(users[i].username);
+            terminal_writestring("\n");
+            break;
+        }
+    }
+    
+    if (!has_valid_users) {
+        terminal_writestring("DEBUG: No valid users found, creating default root user\n");
+        create_default_users();
+    } else {
+        terminal_writestring("DEBUG: Valid users already exist\n");
+    }
     
     terminal_writestring("DEBUG: init_users() - Users initialization complete\n");
 }
