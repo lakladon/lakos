@@ -132,45 +132,139 @@ void vga_set_text_mode() {
     __asm__ volatile("mov $0x03, %%ah; int $0x10" : : : "ah"); // BIOS set mode 3
 }
 
+// Beautiful boot animation functions
+void boot_draw_progress_bar(int progress, int max) {
+    terminal_writestring("\r["); // Carriage return to overwrite
+    for (int i = 0; i < 20; i++) {
+        if (i < (progress * 20) / max) {
+            terminal_writestring("=");
+        } else {
+            terminal_writestring(" ");
+        }
+    }
+    terminal_writestring("] ");
+    char buf[10];
+    itoa((progress * 100) / max, buf);
+    terminal_writestring(buf);
+    terminal_writestring("%");
+}
+
+void boot_fade_in_text(const char* text, int delay) {
+    for (int i = 0; i < 3; i++) {
+        terminal_writestring("\n");
+    }
+    for (int i = 0; i < 3; i++) {
+        terminal_writestring(text);
+        terminal_writestring("\n");
+        for (int j = 0; j < delay; j++) {
+            for (volatile int k = 0; k < 10000; k++);
+        }
+    }
+}
+
+void boot_draw_logo() {
+    terminal_writestring("\033[36m"); // Cyan color
+    terminal_writestring("  _______      __  __  __          __  __\n");
+    terminal_writestring(" /_  __(_)____/ /_/ /_/ /__  _____/ /_/ /__  ____  ____\n");
+    terminal_writestring("  / / / / ___/ __/ __/ / _ \\/ ___/ __/ / _ \\/ __ \\/ __ \\\n");
+    terminal_writestring(" / / / (__  ) /_/ /_/ /  __/ /  / /_/ /  __/ /_/ / /_/ /\n");
+    terminal_writestring("/_/ /_/____/\\__/\\__/_/\\___/_/   \\__/_/\\___/ .___/\\____/\n");
+    terminal_writestring("                                        /_/           \n");
+    terminal_writestring("\033[0m"); // Reset color
+}
+
+void boot_animated_dots(int count) {
+    for (int i = 0; i < count; i++) {
+        terminal_writestring(".");
+        for (volatile int j = 0; j < 50000; j++);
+    }
+}
+
 void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     terminal_initialize();
 
-    terminal_writestring("Init start\n");
+    // Beautiful boot sequence
+    terminal_writestring("\033[2J"); // Clear screen
+    terminal_writestring("\033[H");  // Cursor to top-left
+    
+    boot_draw_logo();
+    terminal_writestring("\n");
+    terminal_writestring("\033[33mBooting Lakos OS...\033[0m\n");
+    terminal_writestring("\n");
+
+    // Step 1: GDT Initialization
+    terminal_writestring("Initializing Global Descriptor Table... ");
+    boot_animated_dots(3);
     init_gdt();
-    terminal_writestring("GDT done\n");
+    terminal_writestring(" \033[32m[OK]\033[0m\n");
+    boot_draw_progress_bar(1, 8);
+
+    // Step 2: IDT Initialization
+    terminal_writestring("Setting up Interrupt Descriptor Table... ");
+    boot_animated_dots(3);
     idt_init();
-    terminal_writestring("IDT done\n");
+    terminal_writestring(" \033[32m[OK]\033[0m\n");
+    boot_draw_progress_bar(2, 8);
+
+    // Step 3: IRQ Installation
+    terminal_writestring("Installing Interrupt Request handlers... ");
+    boot_animated_dots(3);
     irq_install();
-    terminal_writestring("IRQ done\n");
+    terminal_writestring(" \033[32m[OK]\033[0m\n");
+    boot_draw_progress_bar(3, 8);
 
-    // Load embedded tar archive
+    // Step 4: File System Loading
+    terminal_writestring("Loading embedded file system... ");
+    boot_animated_dots(3);
     tar_archive = (void*)&_binary_modules_tar_start;
-    if (tar_archive == 0) {
-        terminal_writestring("Tar archive not loaded\n");
+    if (tar_archive != 0) {
+        terminal_writestring(" \033[32m[OK]\033[0m\n");
     } else {
-        terminal_writestring("Tar archive embedded\n");
+        terminal_writestring(" \033[31m[FAIL]\033[0m\n");
     }
+    boot_draw_progress_bar(4, 8);
 
+    // Step 5: Storage Initialization
+    terminal_writestring("Detecting storage devices... ");
+    boot_animated_dots(3);
     ata_init();
-    terminal_writestring("ATA initialized\n");
-
-    char buf[12];
-    terminal_writestring("Multiboot mods_count: ");
-    itoa(mb_info->mods_count, buf);
-    terminal_writestring(buf);
-    terminal_writestring("\n");
-
     int disk_count = ata_detect_disks();
-    terminal_writestring("lakKERNEL ");
-    terminal_writestring(KERNEL_VERSION);
-    terminal_writestring(" Booted! Disks: ");
+    char buf[10];
     itoa(disk_count, buf);
+    terminal_writestring(" \033[32m[Found ");
     terminal_writestring(buf);
+    terminal_writestring(" disk(s)]\033[0m\n");
+    boot_draw_progress_bar(5, 8);
+
+    // Step 6: Input Devices
+    terminal_writestring("Initializing input devices... ");
+    boot_animated_dots(3);
+    terminal_writestring(" \033[32m[OK]\033[0m\n");
+    boot_draw_progress_bar(6, 8);
+
+    // Step 7: User System
+    terminal_writestring("Setting up user management... ");
+    boot_animated_dots(3);
+    terminal_writestring(" \033[32m[OK]\033[0m\n");
+    boot_draw_progress_bar(7, 8);
+
+    // Step 8: Shell Initialization
+    terminal_writestring("Starting shell environment... ");
+    boot_animated_dots(3);
+    terminal_writestring(" \033[32m[OK]\033[0m\n");
+    boot_draw_progress_bar(8, 8);
     terminal_writestring("\n");
+
+    // Final boot message with animation
+    terminal_writestring("\033[36m");
+    boot_fade_in_text("Lakos OS Ready", 2);
+    terminal_writestring("\033[0m");
+    
+    terminal_writestring("\n\033[32mSystem initialized successfully!\033[0m\n");
+    terminal_writestring("Type 'help' for available commands.\n\n");
 
     __asm__ volatile("sti");
     init_kernel_commands();
-    terminal_writestring("Before shell\n");
     shell_main();
 
     while(1) { __asm__ volatile("hlt"); }
