@@ -31,7 +31,7 @@ void read_line(char* buffer, int max, int echo) {
     while (1) {
         if (inb(0x64) & 0x1) {
             uint8_t scancode = inb(0x60);
-            if (scancode == 42 || scancode == 54) {
+            if ((scancode & 0x7F) == 42 || (scancode & 0x7F) == 54) {
                 shift_pressed = !(scancode & 0x80);
             } else if (scancode == 58) {
                 if (!(scancode & 0x80)) caps_locked = !caps_locked;
@@ -161,7 +161,7 @@ void shell_main() {
     while(1) {
         if (inb(0x64) & 0x1) {
             uint8_t scancode = inb(0x60);
-            if (scancode == 42 || scancode == 54) {
+            if ((scancode & 0x7F) == 42 || (scancode & 0x7F) == 54) {
                 shift_pressed = !(scancode & 0x80);
             } else if (scancode == 58) {
                 if (!(scancode & 0x80)) caps_locked = !caps_locked;
