@@ -320,6 +320,7 @@ void kernel_execute_command(const char* input) {
                 strncat(current_dir, dir, remaining);
             }
         } else if (strncmp(current_dir, "/home/", 6) == 0) {
+            // Handle subdirectory navigation
             const char* parent = current_dir + 6;
             int parent_len = 0;
             while (parent[parent_len] && parent[parent_len] != '/') parent_len++;
@@ -327,24 +328,41 @@ void kernel_execute_command(const char* input) {
             if (parent_len >= 32) parent_len = 31;
             for (int k = 0; k < parent_len; k++) parent_name[k] = parent[k];
             parent_name[parent_len] = '\0';
-            int found = 0;
+            
+            // Find the parent directory index
+            int parent_index = -1;
             for (int i = 0; i < home_dir_count; i++) {
                 if (strcmp(home_dirs[i], parent_name) == 0) {
-                    for (int j = 0; j < home_sub_count[i]; j++) {
-                        if (strcmp(home_subdirs[i][j], dir) == 0) {
-                            strncat(current_dir, "/", 255 - strlen(current_dir));
-                            strncat(current_dir, dir, 255 - strlen(current_dir));
-                            found = 1;
-                            break;
-                        }
-                    }
+                    parent_index = i;
                     break;
                 }
             }
-            if (!found) {
-                terminal_writestring("cd: ");
-                terminal_writestring(dir);
-                terminal_writestring(": No such file or directory\n");
+            
+            if (parent_index >= 0) {
+                // Look for the subdirectory
+                int found = 0;
+                for (int j = 0; j < home_sub_count[parent_index]; j++) {
+                    if (strcmp(home_subdirs[parent_index][j], dir) == 0) {
+                        // Build the new path safely
+                        char new_path[256];
+                        strcpy(new_path, current_dir);
+                        // Ensure we don't have double slashes
+                        if (new_path[strlen(new_path)-1] != '/') {
+                            strcat(new_path, "/");
+                        }
+                        strcat(new_path, dir);
+                        strcpy(current_dir, new_path);
+                        found = 1;
+                        break;
+                    }
+                }
+                if (!found) {
+                    terminal_writestring("cd: ");
+                    terminal_writestring(dir);
+                    terminal_writestring(": No such file or directory\n");
+                }
+            } else {
+                terminal_writestring("cd: parent directory not found\n");
             }
         } else {
             terminal_writestring("cd: ");
