@@ -153,7 +153,7 @@ void boot_fade_in_text(const char* text, int delay) {
     for (int i = 0; i < 3; i++) {
         terminal_writestring("\n");
     }
-    for (int i = 0; i < 5; i++) {  // Increased from 3 to 5 for longer animation
+    for (int i = 0; i < 3; i++) {
         terminal_writestring(text);
         terminal_writestring("\n");
         for (int j = 0; j < delay; j++) {
@@ -176,50 +176,8 @@ void boot_draw_logo() {
 void boot_animated_dots(int count) {
     for (int i = 0; i < count; i++) {
         terminal_writestring(".");
-        for (volatile int j = 0; j < 150000; j++);  // Even longer delay for slower dots
+        for (volatile int j = 0; j < 50000; j++);
     }
-}
-
-void boot_dramatic_pause(int duration) {
-    for (int i = 0; i < duration; i++) {
-        for (volatile int j = 0; j < 250000; j++);  // Longer pause between steps
-    }
-}
-
-void boot_scanning_animation() {
-    terminal_writestring("Scanning system components");
-    for (int i = 0; i < 6; i++) {
-        terminal_writestring(".");
-        for (volatile int j = 0; j < 100000; j++);
-    }
-    terminal_writestring(" \033[32m[COMPLETE]\033[0m\n");
-}
-
-void boot_memory_test() {
-    terminal_writestring("Running memory diagnostics");
-    for (int i = 0; i < 5; i++) {
-        terminal_writestring(".");
-        for (volatile int j = 0; j < 120000; j++);
-    }
-    terminal_writestring(" \033[32m[PASSED]\033[0m\n");
-}
-
-void boot_security_check() {
-    terminal_writestring("Performing security validation");
-    for (int i = 0; i < 5; i++) {
-        terminal_writestring(".");
-        for (volatile int j = 0; j < 150000; j++);
-    }
-    terminal_writestring(" \033[32m[SECURE]\033[0m\n");
-}
-
-void boot_system_check() {
-    terminal_writestring("Verifying system integrity");
-    for (int i = 0; i < 5; i++) {
-        terminal_writestring(".");
-        for (volatile int j = 0; j < 120000; j++);
-    }
-    terminal_writestring(" \033[32m[VERIFIED]\033[0m\n");
 }
 
 void kmain(multiboot_info_t* mb_info, uint32_t magic) {
@@ -234,63 +192,41 @@ void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     terminal_writestring("\033[33mBooting Lakos OS...\033[0m\n");
     terminal_writestring("\n");
 
-    // Pre-boot system checks
-    terminal_writestring("Performing pre-boot diagnostics");
-    boot_animated_dots(5);
-    terminal_writestring(" \033[32m[OK]\033[0m\n");
-    boot_dramatic_pause(2);
-
-    boot_memory_test();
-    boot_dramatic_pause(2);
-
-    boot_security_check();
-    boot_dramatic_pause(2);
-
-    boot_system_check();
-    boot_dramatic_pause(2);
-
-    boot_scanning_animation();
-    boot_dramatic_pause(3);
-
     // Step 1: GDT Initialization
     terminal_writestring("Initializing Global Descriptor Table... ");
-    boot_animated_dots(4);
+    boot_animated_dots(3);
     init_gdt();
     terminal_writestring(" \033[32m[OK]\033[0m\n");
-    boot_draw_progress_bar(1, 12);
-    boot_dramatic_pause(1);
+    boot_draw_progress_bar(1, 8);
 
     // Step 2: IDT Initialization
     terminal_writestring("Setting up Interrupt Descriptor Table... ");
-    boot_animated_dots(4);
+    boot_animated_dots(3);
     idt_init();
     terminal_writestring(" \033[32m[OK]\033[0m\n");
-    boot_draw_progress_bar(2, 12);
-    boot_dramatic_pause(1);
+    boot_draw_progress_bar(2, 8);
 
     // Step 3: IRQ Installation
     terminal_writestring("Installing Interrupt Request handlers... ");
-    boot_animated_dots(4);
+    boot_animated_dots(3);
     irq_install();
     terminal_writestring(" \033[32m[OK]\033[0m\n");
-    boot_draw_progress_bar(3, 12);
-    boot_dramatic_pause(1);
+    boot_draw_progress_bar(3, 8);
 
     // Step 4: File System Loading
     terminal_writestring("Loading embedded file system... ");
-    boot_animated_dots(4);
+    boot_animated_dots(3);
     tar_archive = (void*)&_binary_modules_tar_start;
     if (tar_archive != 0) {
         terminal_writestring(" \033[32m[OK]\033[0m\n");
     } else {
         terminal_writestring(" \033[31m[FAIL]\033[0m\n");
     }
-    boot_draw_progress_bar(4, 12);
-    boot_dramatic_pause(1);
+    boot_draw_progress_bar(4, 8);
 
     // Step 5: Storage Initialization
     terminal_writestring("Detecting storage devices... ");
-    boot_animated_dots(4);
+    boot_animated_dots(3);
     ata_init();
     int disk_count = ata_detect_disks();
     char buf[10];
@@ -298,61 +234,30 @@ void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     terminal_writestring(" \033[32m[Found ");
     terminal_writestring(buf);
     terminal_writestring(" disk(s)]\033[0m\n");
-    boot_draw_progress_bar(5, 12);
-    boot_dramatic_pause(1);
+    boot_draw_progress_bar(5, 8);
 
     // Step 6: Input Devices
     terminal_writestring("Initializing input devices... ");
-    boot_animated_dots(4);
+    boot_animated_dots(3);
     terminal_writestring(" \033[32m[OK]\033[0m\n");
-    boot_draw_progress_bar(6, 12);
-    boot_dramatic_pause(1);
+    boot_draw_progress_bar(6, 8);
 
     // Step 7: User System
     terminal_writestring("Setting up user management... ");
-    boot_animated_dots(4);
+    boot_animated_dots(3);
     terminal_writestring(" \033[32m[OK]\033[0m\n");
-    boot_draw_progress_bar(7, 12);
-    boot_dramatic_pause(1);
+    boot_draw_progress_bar(7, 8);
 
     // Step 8: Shell Initialization
     terminal_writestring("Starting shell environment... ");
-    boot_animated_dots(4);
+    boot_animated_dots(3);
     terminal_writestring(" \033[32m[OK]\033[0m\n");
-    boot_draw_progress_bar(8, 12);
-    boot_dramatic_pause(1);
-
-    // Step 9: Network Initialization (placeholder)
-    terminal_writestring("Initializing network stack... ");
-    boot_animated_dots(4);
-    terminal_writestring(" \033[33m[SKIPPED]\033[0m\n");
-    boot_draw_progress_bar(9, 12);
-    boot_dramatic_pause(1);
-
-    // Step 10: Graphics Initialization (placeholder)
-    terminal_writestring("Setting up graphics subsystem... ");
-    boot_animated_dots(4);
-    terminal_writestring(" \033[33m[TEXT MODE]\033[0m\n");
-    boot_draw_progress_bar(10, 12);
-    boot_dramatic_pause(1);
-
-    // Step 11: Audio System (placeholder)
-    terminal_writestring("Initializing audio system... ");
-    boot_animated_dots(4);
-    terminal_writestring(" \033[33m[DISABLED]\033[0m\n");
-    boot_draw_progress_bar(11, 12);
-    boot_dramatic_pause(1);
-
-    // Step 12: Final System Check
-    terminal_writestring("Performing final system check... ");
-    boot_animated_dots(4);
-    terminal_writestring(" \033[32m[READY]\033[0m\n");
-    boot_draw_progress_bar(12, 12);
+    boot_draw_progress_bar(8, 8);
     terminal_writestring("\n");
 
     // Final boot message with animation
     terminal_writestring("\033[36m");
-    boot_fade_in_text("Lakos OS Ready", 3);
+    boot_fade_in_text("Lakos OS Ready", 2);
     terminal_writestring("\033[0m");
     
     terminal_writestring("\n\033[32mSystem initialized successfully!\033[0m\n");
