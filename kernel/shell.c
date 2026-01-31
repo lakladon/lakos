@@ -84,6 +84,247 @@ void read_line(char* buffer, int max, int echo) {
 static char shell_buf[256];
 static int shell_ptr = 0;
 
+// Command history
+#define HISTORY_SIZE 10
+static char command_history[HISTORY_SIZE][256];
+static int history_count = 0;
+static int history_index = 0;
+
+// Command completion
+static const char* available_commands[] = {
+    "help", "cls", "ver", "pwd", "ls", "cd", "echo", "uname", "date", 
+    "cat", "mkdir", "disks", "read_sector", "write_sector", "mount",
+    "useradd", "passwd", "login", "userdel", "crypt", "whoami", 
+    "touch", "rm", "cp", "shutdown", "reboot", "gui", "hello", "test", "editor", "calc"
+};
+static int commands_count = 32;
+
+// Arrow key scancodes
+#define KEY_UP 72
+#define KEY_DOWN 80
+#define KEY_TAB 15
+
+// Function to add command to history
+void add_to_history(const char* command) {
+    if (strlen(command) > 0) {
+        // Add to history
+        strcpy(command_history[history_count % HISTORY_SIZE], command);
+        history_count++;
+        history_index = history_count; // Point to newest command
+    }
+}
+
+// Function to get previous command from history
+void get_previous_history() {
+    if (history_count > 0) {
+        int prev_index = (history_index - 1 + HISTORY_SIZE) % HISTORY_SIZE;
+        if (history_index > 0) {
+            // Clear current line
+            for (int i = 0; i < shell_ptr; i++) {
+                terminal_putchar('\b');
+                terminal_putchar(' ');
+                terminal_putchar('\b');
+            }
+            // Load previous command
+            strcpy(shell_buf, command_history[prev_index]);
+            shell_ptr = strlen(shell_buf);
+            // Display it
+            terminal_writestring(shell_buf);
+        }
+    }
+}
+
+// Function to get next command from history
+void get_next_history() {
+    if (history_count > 0 && history_index < history_count) {
+        history_index++;
+        if (history_index >= history_count) {
+            // Clear current line
+            for (int i = 0; i < shell_ptr; i++) {
+                terminal_putchar('\b');
+                terminal_putchar(' ');
+                terminal_putchar('\b');
+            }
+            shell_ptr = 0;
+            shell_buf[0] = '\0';
+        } else {
+            int next_index = history_index % HISTORY_SIZE;
+            // Clear current line
+            for (int i = 0; i < shell_ptr; i++) {
+                terminal_putchar('\b');
+                terminal_putchar(' ');
+                terminal_putchar('\b');
+            }
+            // Load next command
+            strcpy(shell_buf, command_history[next_index]);
+            shell_ptr = strlen(shell_buf);
+            // Display it
+            terminal_writestring(shell_buf);
+        }
+    }
+}
+
+// Function to find matching commands for tab completion
+int find_command_matches(const char* prefix, char matches[][32]) {
+    int match_count = 0;
+    int prefix_len = strlen(prefix);
+    
+    for (int i = 0; i < commands_count; i++) {
+        if (strncmp(available_commands[i], prefix, prefix_len) == 0) {
+            strcpy(matches[match_count], available_commands[i]);
+            match_count++;
+        }
+    }
+    return match_count;
+}
+
+// Function to find directory matches for cd command
+int find_directory_matches(const char* prefix, char matches[][32]) {
+    int match_count = 0;
+    int prefix_len = strlen(prefix);
+    
+    // Check current directory contents
+    if (strcmp(current_dir, "/") == 0) {
+        // Root directory - check dirs array
+        for (int i = 0; i < 3; i++) {
+            if (strncmp(dirs[i], prefix, prefix_len) == 0) {
+                strcpy(matches[match_count], dirs[i]);
+                strcat(matches[match_count], "/");
+                match_count++;
+            }
+        }
+    } else if (strcmp(current_dir, "/home") == 0) {
+        // Home directory - check home_dirs
+        for (int i = 0; i < home_dir_count; i++) {
+            if (strncmp(home_dirs[i], prefix, prefix_len) == 0) {
+                strcpy(matches[match_count], home_dirs[i]);
+                strcat(matches[match_count], "/");
+                match_count++;
+            }
+        }
+    } else if (strncmp(current_dir, "/home/", 6) == 0) {
+        // Subdirectory - check home_subdirs
+        const char* parent = current_dir + 6;
+        int parent_len = 0;
+        while (parent[parent_len] && parent[parent_len] != '/') parent_len++;
+        char parent_name[32];
+        if (parent_len >= 32) parent_len = 31;
+        for (int k = 0; k < parent_len; k++) parent_name[k] = parent[k];
+        parent_name[parent_len] = '\0';
+        
+        for (int i = 0; i < home_dir_count; i++) {
+            if (strcmp(home_dirs[i], parent_name) == 0) {
+                for (int j = 0; j < home_sub_count[i]; j++) {
+                    if (strncmp(home_subdirs[i][j], prefix, prefix_len) == 0) {
+                        strcpy(matches[match_count], home_subdirs[i][j]);
+                        strcat(matches[match_count], "/");
+                        match_count++;
+                    }
+                }
+                break;
+            }
+        }
+    }
+    return match_count;
+}
+
+// Function to perform tab completion
+void perform_completion() {
+    if (shell_ptr == 0) return;
+    
+    // Find the current word being typed
+    int start = 0;
+    for (int i = shell_ptr - 1; i >= 0; i--) {
+        if (shell_buf[i] == ' ') {
+            start = i + 1;
+            break;
+        }
+    }
+    
+    char current_word[32];
+    int word_len = shell_ptr - start;
+    if (word_len >= 32) word_len = 31;
+    for (int i = 0; i < word_len; i++) {
+        current_word[i] = shell_buf[start + i];
+    }
+    current_word[word_len] = '\0';
+    
+    // Check if this is a cd command
+    int is_cd_command = 0;
+    if (start == 0) {
+        // Check if first word is "cd"
+        char first_word[32];
+        int space_pos = -1;
+        for (int i = 0; i < shell_ptr; i++) {
+            if (shell_buf[i] == ' ') {
+                space_pos = i;
+                break;
+            }
+        }
+        if (space_pos > 0) {
+            int len = space_pos;
+            if (len >= 32) len = 31;
+            for (int i = 0; i < len; i++) {
+                first_word[i] = shell_buf[i];
+            }
+            first_word[len] = '\0';
+            if (strcmp(first_word, "cd") == 0) {
+                is_cd_command = 1;
+            }
+        }
+    }
+    
+    char matches[10][32];
+    int match_count = 0;
+    
+    if (is_cd_command) {
+        match_count = find_directory_matches(current_word, matches);
+    } else {
+        match_count = find_command_matches(current_word, matches);
+    }
+    
+    if (match_count == 1) {
+        // Single match - complete it
+        // Remove current word
+        for (int i = 0; i < word_len; i++) {
+            terminal_putchar('\b');
+            terminal_putchar(' ');
+            terminal_putchar('\b');
+        }
+        // Add the completed word
+        strcpy(shell_buf + start, matches[0]);
+        shell_ptr = start + strlen(matches[0]);
+        terminal_writestring(matches[0]);
+    } else if (match_count > 1) {
+        // Multiple matches - show them and keep current input
+        terminal_putchar('\n');
+        for (int i = 0; i < match_count; i++) {
+            terminal_writestring(matches[i]);
+            terminal_writestring(" ");
+        }
+        terminal_putchar('\n');
+        terminal_writestring("LakOS>");
+        if (strcmp(current_user, "root") == 0) {
+            terminal_writestring("\033[31mroot\033[0m");
+        } else {
+            terminal_writestring("\033[32m");
+            terminal_writestring(current_user);
+            terminal_writestring("\033[0m");
+        }
+        terminal_writestring(" ");
+        terminal_writestring(current_dir);
+        terminal_writestring(" \033[36m(uid:");
+        char buf[16];
+        itoa(get_current_uid(), buf);
+        terminal_writestring(buf);
+        terminal_writestring(",gid:");
+        itoa(get_current_gid(), buf);
+        terminal_writestring(buf);
+        terminal_writestring(")\033[0m ");
+        terminal_writestring(shell_buf);
+    }
+}
+
 // Эту функцию вызывает драйвер клавиатуры
 void shell_handle_key(char c) {
     if (c == '\n') {
@@ -91,6 +332,8 @@ void shell_handle_key(char c) {
         shell_buf[shell_ptr] = '\0';
         
         if (shell_ptr > 0) {
+            // Add command to history before executing
+            add_to_history(shell_buf);
             kernel_execute_command(shell_buf);
         }
 
@@ -212,10 +455,18 @@ void shell_main() {
             } else if (scancode == 58) {
                 if (!(scancode & 0x80)) caps_locked = !caps_locked;
             } else if (!(scancode & 0x80)) {
-                int is_letter = (scancode >= 16 && scancode <= 25) || (scancode >= 30 && scancode <= 38) || (scancode >= 44 && scancode <= 50);
-                int uppercase = shift_pressed || (caps_locked && is_letter);
-                char c = uppercase ? kbd_map_shift[scancode] : kbd_map[scancode];
-                if (c != 0) shell_handle_key(c);
+                if (scancode == KEY_UP) {
+                    get_previous_history();
+                } else if (scancode == KEY_DOWN) {
+                    get_next_history();
+                } else if (scancode == KEY_TAB) {
+                    perform_completion();
+                } else {
+                    int is_letter = (scancode >= 16 && scancode <= 25) || (scancode >= 30 && scancode <= 38) || (scancode >= 44 && scancode <= 50);
+                    int uppercase = shift_pressed || (caps_locked && is_letter);
+                    char c = uppercase ? kbd_map_shift[scancode] : kbd_map[scancode];
+                    if (c != 0) shell_handle_key(c);
+                }
             }
         }
     }
