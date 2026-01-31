@@ -46,7 +46,14 @@ lakos.bin: $(OBJ)
 
 .PHONY: modules.tar
 modules.tar:
-	cd rootfs && find . -name "*.c" -o -name "*.h" | tar -cf ../$@ -T -
+	cd rootfs && find . -name "*.c" -o -name "*.h" | tar -cf ../$@ --transform 's|^\./||' -T -
+	# Compile C files to executables and add to tar
+	cd rootfs && for file in $$(find . -name "*.c"); do \
+		base=$$(basename "$$file" .c); \
+		dir=$$(dirname "$$file"); \
+		$(CC) $(CFLAGS) -o "$$dir/$$base" "$$file"; \
+	done
+	cd rootfs && find . -maxdepth 2 -type f ! -name "*.c" ! -name "*.h" | tar -rf ../modules.tar --transform 's|^\./||' -T -
 
 iso: lakos.bin
 	mkdir -p isodir/boot/grub
