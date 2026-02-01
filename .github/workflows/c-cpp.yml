@@ -77,8 +77,8 @@ jobs:
           sudo ln -s /usr/bin/ld /usr/bin/i686-elf-ld
 
       - name: Build Kernel and iso
-        run: make clean
-        run: make iso
+        run: make clean iso
+        
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
