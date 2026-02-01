@@ -359,6 +359,7 @@ void shell_main() {
     terminal_writestring("| |_ <_> || / /| | |\\__ \\\n");
     terminal_writestring("|___|<___||_\\_\\`___'<___/  ONO SUKA RABOTAET\n");
     terminal_writestring("\nWelcome to Lakos OS\n");
+    terminal_writestring("\033[31mError: \033[0mSomething went wrong");
 
     terminal_writestring("Shell initialized, starting login\n");
 

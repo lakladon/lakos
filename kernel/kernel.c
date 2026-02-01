@@ -180,8 +180,58 @@ void boot_animated_dots(int count) {
     }
 }
 
+// System information structure
+typedef struct {
+    uint32_t memory_size;
+    uint32_t cpu_features;
+    char kernel_version[16];
+    char build_date[32];
+} system_info_t;
+
+system_info_t sys_info;
+
+// Memory detection function
+uint32_t detect_memory_size(multiboot_info_t* mb_info) {
+    if (mb_info->flags & 0x0001) {
+        return mb_info->mem_upper * 1024;
+    }
+    return 0;
+}
+
+// CPU feature detection
+uint32_t detect_cpu_features() {
+    uint32_t features = 0;
+    uint32_t eax, ebx, ecx, edx;
+    
+    // Check for CPUID support
+    __asm__ volatile(
+        "pushf\n\t"
+        "pop %%eax\n\t"
+        "mov %%eax, %%ebx\n\t"
+        "xor $0x200000, %%eax\n\t"
+        "push %%eax\n\t"
+        "popf\n\t"
+        "pushf\n\t"
+        "pop %%eax\n\t"
+        "xor %%ebx, %%eax\n\t"
+        "mov %%eax, %0\n\t"
+        : "=r"(features)
+        :
+        : "eax", "ebx"
+    );
+    
+    return features;
+}
+
+// Enhanced boot sequence with system info
 void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     terminal_initialize();
+
+    // Initialize system information
+    sys_info.memory_size = detect_memory_size(mb_info);
+    sys_info.cpu_features = detect_cpu_features();
+    strcpy(sys_info.kernel_version, KERNEL_VERSION);
+    strcpy(sys_info.build_date, __DATE__ " " __TIME__);
 
     // Beautiful boot sequence
     terminal_writestring("\033[2J"); // Clear screen
@@ -255,13 +305,30 @@ void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     boot_draw_progress_bar(8, 8);
     terminal_writestring("\n");
 
-    // Final boot message with animation
+    // System information display
     terminal_writestring("\033[36m");
     boot_fade_in_text("Lakos OS Ready", 2);
     terminal_writestring("\033[0m");
     
     terminal_writestring("\n\033[32mSystem initialized successfully!\033[0m\n");
-    terminal_writestring("Type 'help' for available commands.\n\n");
+    terminal_writestring("Type 'help' for available commands.\n");
+    
+    // Display system information
+    terminal_writestring("\n\033[33mSystem Information:\033[0m\n");
+    terminal_writestring("Kernel Version: ");
+    terminal_writestring(sys_info.kernel_version);
+    terminal_writestring("\n");
+    terminal_writestring("Build Date: ");
+    terminal_writestring(sys_info.build_date);
+    terminal_writestring("\n");
+    terminal_writestring("Memory: ");
+    itoa(sys_info.memory_size / 1024, buf);
+    terminal_writestring(buf);
+    terminal_writestring(" KB\n");
+    terminal_writestring("CPU Features: ");
+    itoa(sys_info.cpu_features, buf);
+    terminal_writestring(buf);
+    terminal_writestring("\n\n");
 
     __asm__ volatile("sti");
     init_kernel_commands();
