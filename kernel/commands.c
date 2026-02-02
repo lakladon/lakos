@@ -95,7 +95,7 @@ void init_kernel_commands() {
         for (int i = 0; i < tar_count && dir_count < 10; i++) {
             // Only add top-level directories
             char* slash = strchr(tar_dirs[i], '/');
-            if (slash == NULL || slash == tar_dirs[i] + strlen(tar_dirs[i]) - 1) {
+            if (slash == 0 || slash == tar_dirs[i] + strlen(tar_dirs[i]) - 1) {
                 // This is a top-level directory
                 strcpy(dirs[dir_count++], tar_dirs[i]);
             }
