@@ -12,6 +12,10 @@ void* memcpy(void* dest, const void* src, unsigned int n);
 void* memset(void* s, int c, unsigned int n);
 char* strstr(const char* haystack, const char* needle);
 char* strncat(char* dest, const char* src, int n);
+char* strchr(const char* s, int c);
+char* strcat(char* dest, const char* src);
+char* strrchr(const char* s, int c);
+char* strncpy(char* dest, const char* src, unsigned int n);
 void itoa(int n, char* buf);
 
 #endif
