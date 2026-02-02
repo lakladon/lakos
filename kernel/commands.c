@@ -176,15 +176,42 @@ char get_char() {
         if (inb(0x64) & 0x1) {
             uint8_t scancode = inb(0x60);
             if (!(scancode & 0x80)) { // Key press (not release)
-                char c = scancode < 128 ? scancode : 0;
-                if (c == '\r' || c == '\n') {
-                    return '\n';
-                } else if (c == '\b' && user_input_pos > 0) {
-                    user_input_pos--;
-                    terminal_putchar('\b');
-                    terminal_putchar(' ');
-                    terminal_putchar('\b');
-                } else if (c >= 32 && c < 127 && user_input_pos < 255) {
+                char c = 0;
+                
+                // Map scancodes to ASCII characters
+                switch (scancode) {
+                    case 28: // Enter
+                        return '\n';
+                    case 14: // Backspace
+                        if (user_input_pos > 0) {
+                            user_input_pos--;
+                            terminal_putchar('\b');
+                            terminal_putchar(' ');
+                            terminal_putchar('\b');
+                        }
+                        break;
+                    case 57: // Space
+                        c = ' ';
+                        break;
+                    default:
+                        // Map alphanumeric keys (simplified mapping)
+                        if (scancode >= 2 && scancode <= 11) { // 1-0
+                            c = '1' + (scancode - 2);
+                        } else if (scancode == 12) { // -
+                            c = '-';
+                        } else if (scancode == 13) { // =
+                            c = '=';
+                        } else if (scancode >= 16 && scancode <= 25) { // q-p
+                            c = 'q' + (scancode - 16);
+                        } else if (scancode >= 30 && scancode <= 38) { // a-l
+                            c = 'a' + (scancode - 30);
+                        } else if (scancode >= 44 && scancode <= 50) { // z-m
+                            c = 'z' + (scancode - 44);
+                        }
+                        break;
+                }
+                
+                if (c >= 32 && c < 127 && user_input_pos < 255) {
                     user_input_buffer[user_input_pos++] = c;
                     terminal_putchar(c);
                 }
