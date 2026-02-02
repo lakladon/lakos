@@ -81,6 +81,29 @@ char* strcat(char* dest, const char* src) {
     return dest;
 }
 
+char* strrchr(const char* s, int c) {
+    const char* last = NULL;
+    while (*s) {
+        if (*s == c) last = s;
+        s++;
+    }
+    return (char*)last;
+}
+
+char* strncpy(char* dest, const char* src, unsigned int n) {
+    char* d = dest;
+    unsigned int i = 0;
+    while (i < n && src[i] != '\0') {
+        d[i] = src[i];
+        i++;
+    }
+    while (i < n) {
+        d[i] = '\0';
+        i++;
+    }
+    return dest;
+}
+
 void itoa(int n, char* buf) {
     if (n == 0) {
         buf[0] = '0';
