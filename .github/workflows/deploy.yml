@@ -4,11 +4,12 @@ on:
   push:
     branches: [ main ]
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout code
@@ -19,27 +20,21 @@ jobs:
       - name: Calculate Next Version
         id: version
         run: |
-          # Получаем все существующие теги с версиями
           existing_tags=$(git tag -l "v*" 2>/dev/null || echo "")
-          
+
           if [ -z "$existing_tags" ]; then
-            # Если тегов нет, начинаем с v0.1.0
             new_version="v0.1.0"
           else
-            # Получаем последнюю версию (сортировка по версии)
             latest_version=$(echo "$existing_tags" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
-            
+
             if [ -z "$latest_version" ]; then
-              # Если нет валидных версионных тегов
               new_version="v0.1.0"
             else
-              # Увеличиваем patch версию
               version="${latest_version#v}"
               IFS='.' read -r major minor patch <<< "$version"
               patch=$((patch + 1))
               new_version="v${major}.${minor}.${patch}"
-              
-              # Проверяем, существует ли уже такой тег
+
               while git rev-parse "$new_version" >/dev/null 2>&1; do
                 echo "Tag $new_version already exists, increasing patch version..."
                 patch=$((patch + 1))
@@ -47,18 +42,9 @@ jobs:
               done
             fi
           fi
-          
-          echo "Next version: $new_version"
-          echo "version=$new_version" >> $GITHUB_OUTPUT
 
-      - name: Delete Existing Tag if Needed
-        run: |
-          tag_name="${{ steps.version.outputs.version }}"
-          if git rev-parse "$tag_name" >/dev/null 2>&1; then
-            echo "Deleting existing tag: $tag_name"
-            git tag -d "$tag_name" || true
-            git push --delete origin "$tag_name" || true
-          fi
+          echo "Next version: $new_version"
+          echo "version=$new_version" >> "$GITHUB_OUTPUT"
 
       - name: Create Git Tag
         run: |
@@ -76,9 +62,8 @@ jobs:
           sudo ln -s /usr/bin/gcc /usr/bin/i686-elf-gcc
           sudo ln -s /usr/bin/ld /usr/bin/i686-elf-ld
 
-      - name: Build Kernel and iso
+      - name: Build Kernel and ISO
         run: make clean iso
-        
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -87,21 +72,24 @@ jobs:
           name: "Lakos OS ${{ steps.version.outputs.version }}"
           body: |
             ## Lakos OS ${{ steps.version.outputs.version }}
-            
+
             ### Сборка информации
             - **Версия:** ${{ steps.version.outputs.version }}
             - **Дата сборки:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
             - **Коммит:** [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
             - **ID запуска:** ${{ github.run_id }}
             - **Номер сборки:** ${{ github.run_number }}
-            
+
             ### Изменения
             ${{ github.event.head_commit.message }}
-            
+
             ### Файлы
             - `lakos.bin` — бинарный файл ядра
             - `lakos.iso` — загрузочный ISO образ
-          files: lakos.bin, lakos.iso, modules.tar
+          files: |
+            lakos.bin
+            lakos.iso
+            modules.tar
           draft: false
           prerelease: false
         env:
