@@ -65,6 +65,22 @@ char* strncat(char* dest, const char* src, int n) {
     return dest;
 }
 
+char* strchr(const char* s, int c) {
+    while (*s) {
+        if (*s == c) return (char*)s;
+        s++;
+    }
+    return 0;
+}
+
+char* strcat(char* dest, const char* src) {
+    char* d = dest;
+    while (*d) d++;
+    while (*src) *d++ = *src++;
+    *d = '\0';
+    return dest;
+}
+
 void itoa(int n, char* buf) {
     if (n == 0) {
         buf[0] = '0';
