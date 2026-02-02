@@ -11,6 +11,8 @@ extern void terminal_putchar(char c);
 extern void terminal_initialize();
 extern void* tar_archive;
 extern void* tar_lookup(void* archive, const char* filename);
+extern int tar_check_path_exists(void* archive, const char* path);
+extern void tar_get_directories(void* archive, char directories[][256], int* count);
 extern void start_gui();
 extern int get_current_uid();
 extern int get_current_gid();
@@ -78,9 +80,27 @@ char current_dir[256] = "/";
 static char* pathbin = "/bin";
 
 void init_kernel_commands() {
+    // Initialize basic directories
     strcpy(dirs[0], "bin");
     strcpy(dirs[1], "dev");
     strcpy(dirs[2], "home");
+    
+    // If tar archive is available, get directories from it
+    if (tar_archive) {
+        char tar_dirs[100][256];
+        int tar_count = 0;
+        tar_get_directories(tar_archive, tar_dirs, &tar_count);
+        
+        // Add tar directories to our directory list
+        for (int i = 0; i < tar_count && dir_count < 10; i++) {
+            // Only add top-level directories
+            char* slash = strchr(tar_dirs[i], '/');
+            if (slash == NULL || slash == tar_dirs[i] + strlen(tar_dirs[i]) - 1) {
+                // This is a top-level directory
+                strcpy(dirs[dir_count++], tar_dirs[i]);
+            }
+        }
+    }
 }
 
 static file_t* find_file(const char* name) {
@@ -247,41 +267,50 @@ void kernel_execute_command(const char* input) {
         terminal_writestring("\n");
     }
     else if (strcmp(cmd, "ls") == 0) {
-        if (strcmp(current_dir, "/") == 0) {
-            for (int i = 0; i < dir_count; i++) {
-                terminal_writestring(dirs[i]);
-                terminal_writestring("/ ");
-            }
-            terminal_writestring("\n");
-        } else if (strcmp(current_dir, "/bin") == 0) {
-            terminal_writestring("hello  test  editor  calc\n");
-        } else if (strcmp(current_dir, "/home") == 0) {
-            for (int i = 0; i < home_dir_count; i++) {
-                terminal_writestring(home_dirs[i]);
-                terminal_writestring("/ ");
-            }
-            terminal_writestring("\n");
-        } else if (strncmp(current_dir, "/home/", 6) == 0) {
-            const char* dir = current_dir + 6;
-            int dir_len = 0;
-            while (dir[dir_len] && dir[dir_len] != '/') dir_len++;
-            char dir_name[32];
-            if (dir_len >= 32) dir_len = 31;
-            for (int k = 0; k < dir_len; k++) dir_name[k] = dir[k];
-            dir_name[dir_len] = '\0';
-            for (int i = 0; i < home_dir_count; i++) {
-                if (strcmp(home_dirs[i], dir_name) == 0) {
-                    for (int j = 0; j < home_sub_count[i]; j++) {
-                        terminal_writestring(home_subdirs[i][j]);
-                        terminal_writestring("/ ");
-                    }
-                    terminal_writestring("\n");
-                    return;
-                }
-            }
-            terminal_writestring(".\n");
+        // Check if current directory exists in tar archive
+        if (tar_archive && tar_check_path_exists(tar_archive, current_dir)) {
+            // List files from tar archive
+            terminal_writestring("Contents from tar archive:\n");
+            // For now, just show that we're using tar
+            terminal_writestring("(Tar-based listing - implementation pending)\n");
         } else {
-            terminal_writestring(".\n");
+            // Fall back to in-memory directory system
+            if (strcmp(current_dir, "/") == 0) {
+                for (int i = 0; i < dir_count; i++) {
+                    terminal_writestring(dirs[i]);
+                    terminal_writestring("/ ");
+                }
+                terminal_writestring("\n");
+            } else if (strcmp(current_dir, "/bin") == 0) {
+                terminal_writestring("hello  test  editor  calc\n");
+            } else if (strcmp(current_dir, "/home") == 0) {
+                for (int i = 0; i < home_dir_count; i++) {
+                    terminal_writestring(home_dirs[i]);
+                    terminal_writestring("/ ");
+                }
+                terminal_writestring("\n");
+            } else if (strncmp(current_dir, "/home/", 6) == 0) {
+                const char* dir = current_dir + 6;
+                int dir_len = 0;
+                while (dir[dir_len] && dir[dir_len] != '/') dir_len++;
+                char dir_name[32];
+                if (dir_len >= 32) dir_len = 31;
+                for (int k = 0; k < dir_len; k++) dir_name[k] = dir[k];
+                dir_name[dir_len] = '\0';
+                for (int i = 0; i < home_dir_count; i++) {
+                    if (strcmp(home_dirs[i], dir_name) == 0) {
+                        for (int j = 0; j < home_sub_count[i]; j++) {
+                            terminal_writestring(home_subdirs[i][j]);
+                            terminal_writestring("/ ");
+                        }
+                        terminal_writestring("\n");
+                        return;
+                    }
+                }
+                terminal_writestring(".\n");
+            } else {
+                terminal_writestring(".\n");
+            }
         }
     }
     else if (strcmp(cmd, "cd") == 0) {
@@ -310,77 +339,98 @@ void kernel_execute_command(const char* input) {
             } else {
                 strcpy(current_dir, "/");
             }
-        } else if (strcmp(current_dir, "/home") == 0) {
-            strcpy(current_dir, "/home/");
-            int remaining = 255 - strlen(current_dir);
-            int dir_len = strlen(dir);
-            if (dir_len > remaining) {
-                terminal_writestring("cd: directory name too long\n");
-            } else {
-                // Manual string concatenation to avoid strncat
-                int current_len = strlen(current_dir);
-                for (int k = 0; k < dir_len && k < remaining; k++) {
-                    current_dir[current_len + k] = dir[k];
+        } else {
+            // Check if the directory exists in tar archive first
+            if (tar_archive) {
+                char target_path[256];
+                if (current_dir[strlen(current_dir)-1] == '/') {
+                    strcpy(target_path, current_dir);
+                    strcat(target_path, dir);
+                } else {
+                    strcpy(target_path, current_dir);
+                    strcat(target_path, "/");
+                    strcat(target_path, dir);
                 }
-                current_dir[current_len + dir_len] = '\0';
-            }
-        } else if (strncmp(current_dir, "/home/", 6) == 0) {
-            // Handle subdirectory navigation
-            const char* parent = current_dir + 6;
-            int parent_len = 0;
-            while (parent[parent_len] && parent[parent_len] != '/') parent_len++;
-            char parent_name[32];
-            if (parent_len >= 32) parent_len = 31;
-            for (int k = 0; k < parent_len; k++) parent_name[k] = parent[k];
-            parent_name[parent_len] = '\0';
-            
-            // Find the parent directory index
-            int parent_index = -1;
-            for (int i = 0; i < home_dir_count; i++) {
-                if (strcmp(home_dirs[i], parent_name) == 0) {
-                    parent_index = i;
-                    break;
+                
+                if (tar_check_path_exists(tar_archive, target_path)) {
+                    strcpy(current_dir, target_path);
+                    return;
                 }
             }
             
-            if (parent_index >= 0) {
-                // Look for the subdirectory
-                int found = 0;
-                for (int j = 0; j < home_sub_count[parent_index]; j++) {
-                    if (strcmp(home_subdirs[parent_index][j], dir) == 0) {
-                        // Build the new path safely
-                        char new_path[256];
-                        strcpy(new_path, current_dir);
-                        // Ensure we don't have double slashes
-                        int new_path_len = strlen(new_path);
-                        if (new_path[new_path_len-1] != '/') {
-                            new_path[new_path_len] = '/';
-                            new_path[new_path_len+1] = '\0';
-                        }
-                        // Concatenate directory name
-                        int dir_len = strlen(dir);
-                        int final_len = strlen(new_path);
-                        for (int k = 0; k < dir_len; k++) {
-                            new_path[final_len + k] = dir[k];
-                        }
-                        new_path[final_len + dir_len] = '\0';
-                        strcpy(current_dir, new_path);
-                        found = 1;
+            // Fall back to in-memory directory system
+            if (strcmp(current_dir, "/home") == 0) {
+                strcpy(current_dir, "/home/");
+                int remaining = 255 - strlen(current_dir);
+                int dir_len = strlen(dir);
+                if (dir_len > remaining) {
+                    terminal_writestring("cd: directory name too long\n");
+                } else {
+                    // Manual string concatenation to avoid strncat
+                    int current_len = strlen(current_dir);
+                    for (int k = 0; k < dir_len && k < remaining; k++) {
+                        current_dir[current_len + k] = dir[k];
+                    }
+                    current_dir[current_len + dir_len] = '\0';
+                }
+            } else if (strncmp(current_dir, "/home/", 6) == 0) {
+                // Handle subdirectory navigation
+                const char* parent = current_dir + 6;
+                int parent_len = 0;
+                while (parent[parent_len] && parent[parent_len] != '/') parent_len++;
+                char parent_name[32];
+                if (parent_len >= 32) parent_len = 31;
+                for (int k = 0; k < parent_len; k++) parent_name[k] = parent[k];
+                parent_name[parent_len] = '\0';
+                
+                // Find the parent directory index
+                int parent_index = -1;
+                for (int i = 0; i < home_dir_count; i++) {
+                    if (strcmp(home_dirs[i], parent_name) == 0) {
+                        parent_index = i;
                         break;
                     }
                 }
-                if (!found) {
-                    terminal_writestring("cd: ");
-                    terminal_writestring(dir);
-                    terminal_writestring(": No such file or directory\n");
+                
+                if (parent_index >= 0) {
+                    // Look for the subdirectory
+                    int found = 0;
+                    for (int j = 0; j < home_sub_count[parent_index]; j++) {
+                        if (strcmp(home_subdirs[parent_index][j], dir) == 0) {
+                            // Build the new path safely
+                            char new_path[256];
+                            strcpy(new_path, current_dir);
+                            // Ensure we don't have double slashes
+                            int new_path_len = strlen(new_path);
+                            if (new_path[new_path_len-1] != '/') {
+                                new_path[new_path_len] = '/';
+                                new_path[new_path_len+1] = '\0';
+                            }
+                            // Concatenate directory name
+                            int dir_len = strlen(dir);
+                            int final_len = strlen(new_path);
+                            for (int k = 0; k < dir_len; k++) {
+                                new_path[final_len + k] = dir[k];
+                            }
+                            new_path[final_len + dir_len] = '\0';
+                            strcpy(current_dir, new_path);
+                            found = 1;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        terminal_writestring("cd: ");
+                        terminal_writestring(dir);
+                        terminal_writestring(": No such file or directory\n");
+                    }
+                } else {
+                    terminal_writestring("cd: parent directory not found\n");
                 }
             } else {
-                terminal_writestring("cd: parent directory not found\n");
+                terminal_writestring("cd: ");
+                terminal_writestring(dir);
+                terminal_writestring(": No such file or directory\n");
             }
-        } else {
-            terminal_writestring("cd: ");
-            terminal_writestring(dir);
-            terminal_writestring(": No such file or directory\n");
         }
     }
 

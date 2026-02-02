@@ -30,6 +30,67 @@ static unsigned int get_size(const char *in) {
     return size;
 }
 
+// Function to check if a path exists in the tar archive
+static int tar_path_exists(void* archive, const char* path) {
+    unsigned char* ptr = (unsigned char*)archive;
+    
+    while (ptr[0] != '\0') {
+        struct tar_header* header = (struct tar_header*)ptr;
+        
+        // Check if this entry matches the path
+        if (strcmp(header->name, path) == 0) {
+            return 1; // Found exact match
+        }
+        
+        // Check if this entry is a parent directory of the path
+        int path_len = strlen(path);
+        int name_len = strlen(header->name);
+        if (name_len < path_len && 
+            strncmp(header->name, path, name_len) == 0 &&
+            path[name_len] == '/') {
+            return 1; // Found parent directory
+        }
+        
+        unsigned int size = get_size(header->size);
+        ptr += ((size + 511) / 512 + 1) * 512;
+    }
+    return 0; // Not found
+}
+
+// Function to get all directories from tar archive
+static void tar_get_all_directories(void* archive, char directories[][256], int* count) {
+    unsigned char* ptr = (unsigned char*)archive;
+    *count = 0;
+    
+    while (ptr[0] != '\0') {
+        struct tar_header* header = (struct tar_header*)ptr;
+        
+        // Check if this is a directory entry
+        if (header->typeflag == '5' || header->typeflag == 'D') {
+            // Add directory to list
+            if (*count < 100) { // Limit to prevent overflow
+                strcpy(directories[*count], header->name);
+                (*count)++;
+            }
+        } else {
+            // Check if this is a file and extract its directory path
+            char* last_slash = strrchr(header->name, '/');
+            if (last_slash != NULL) {
+                // Extract directory path
+                int dir_len = last_slash - header->name;
+                if (dir_len > 0 && *count < 100) {
+                    strncpy(directories[*count], header->name, dir_len);
+                    directories[*count][dir_len] = '\0';
+                    (*count)++;
+                }
+            }
+        }
+        
+        unsigned int size = get_size(header->size);
+        ptr += ((size + 511) / 512 + 1) * 512;
+    }
+}
+
 // Эту функцию ищет линковщик для shell.c!
 void tar_list_files(void* archive) {
     unsigned char* ptr = (unsigned char*)archive;
@@ -50,6 +111,16 @@ void tar_list_files(void* archive) {
         unsigned int size = get_size(header->size);
         ptr += ((size + 511) / 512 + 1) * 512;
     }
+}
+
+// New function to check if a path exists in tar archive
+int tar_check_path_exists(void* archive, const char* path) {
+    return tar_path_exists(archive, path);
+}
+
+// New function to get all directories from tar archive
+void tar_get_directories(void* archive, char directories[][256], int* count) {
+    tar_get_all_directories(archive, directories, count);
 }
 
 // Твоя функция поиска
