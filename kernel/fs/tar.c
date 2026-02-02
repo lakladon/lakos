@@ -32,22 +32,54 @@ static unsigned int get_size(const char *in) {
 
 // Function to check if a path exists in the tar archive
 static int tar_path_exists(void* archive, const char* path) {
+    if (!path) {
+        return 0;
+    }
+
+    // Normalize path: strip leading '/', trim trailing '/'
+    const char* norm = path;
+    if (norm[0] == '/') {
+        norm++;
+    }
+
+    char path_buf[256];
+    int path_len = strlen(norm);
+    while (path_len > 0 && norm[path_len - 1] == '/') {
+        path_len--;
+    }
+    if (path_len >= 255) {
+        path_len = 255;
+    }
+    strncpy(path_buf, norm, path_len);
+    path_buf[path_len] = '\0';
+
+    if (path_buf[0] == '\0') {
+        return 1; // root always exists
+    }
+
     unsigned char* ptr = (unsigned char*)archive;
     
     while (ptr[0] != '\0') {
         struct tar_header* header = (struct tar_header*)ptr;
         
         // Check if this entry matches the path
-        if (strcmp(header->name, path) == 0) {
+        if (strcmp(header->name, path_buf) == 0) {
             return 1; // Found exact match
+        }
+
+        // Allow header names with trailing '/'
+        int name_len = strlen(header->name);
+        if (name_len > 0 && header->name[name_len - 1] == '/' &&
+            name_len - 1 == path_len &&
+            strncmp(header->name, path_buf, path_len) == 0) {
+            return 1;
         }
         
         // Check if this entry is a parent directory of the path
-        int path_len = strlen(path);
-        int name_len = strlen(header->name);
+        name_len = strlen(header->name);
         if (name_len < path_len && 
-            strncmp(header->name, path, name_len) == 0 &&
-            path[name_len] == '/') {
+            strncmp(header->name, path_buf, name_len) == 0 &&
+            path_buf[name_len] == '/') {
             return 1; // Found parent directory
         }
         
@@ -176,6 +208,114 @@ void tar_list_files(void* archive) {
     }
 }
 
+static int tar_add_list_entry(char entries[][256], int* count, const char* name) {
+    if (!name || name[0] == '\0' || *count >= 100) {
+        return 0;
+    }
+
+    for (int i = 0; i < *count; i++) {
+        if (strcmp(entries[i], name) == 0) {
+            return 0;
+        }
+    }
+
+    strncpy(entries[*count], name, 255);
+    entries[*count][255] = '\0';
+    (*count)++;
+    return 1;
+}
+
+void tar_list_directory(void* archive, const char* dirpath) {
+    unsigned char* ptr = (unsigned char*)archive;
+    if (!ptr) {
+        return;
+    }
+
+    const char* norm = dirpath ? dirpath : "";
+    if (norm[0] == '/') {
+        norm++;
+    }
+
+    char base[256];
+    int base_len = strlen(norm);
+    while (base_len > 0 && norm[base_len - 1] == '/') {
+        base_len--;
+    }
+    if (base_len >= 255) {
+        base_len = 255;
+    }
+    strncpy(base, norm, base_len);
+    base[base_len] = '\0';
+
+    char prefix[256];
+    prefix[0] = '\0';
+    if (base[0] != '\0') {
+        strcpy(prefix, base);
+        if (prefix[strlen(prefix) - 1] != '/') {
+            strcat(prefix, "/");
+        }
+    }
+    int prefix_len = strlen(prefix);
+
+    char entries[100][256];
+    int entry_count = 0;
+
+    while (ptr[0] != '\0') {
+        struct tar_header* header = (struct tar_header*)ptr;
+
+        if (header->name[0] != '\0') {
+            const char* name = header->name;
+            int name_len = strlen(name);
+            int name_is_dir = (header->typeflag == '5' || header->typeflag == 'D' ||
+                               (name_len > 0 && name[name_len - 1] == '/'));
+
+            if (prefix_len == 0) {
+                const char* slash = strchr(name, '/');
+                int comp_len = slash ? (int)(slash - name) : name_len;
+                if (comp_len > 0) {
+                    char entry[256];
+                    if (comp_len >= 255) comp_len = 255;
+                    strncpy(entry, name, comp_len);
+                    entry[comp_len] = '\0';
+
+                    int is_dir = (slash != NULL) || name_is_dir;
+                    if (is_dir && strlen(entry) < 255) {
+                        strcat(entry, "/");
+                    }
+                    tar_add_list_entry(entries, &entry_count, entry);
+                }
+            } else if (strncmp(name, prefix, prefix_len) == 0) {
+                const char* rest = name + prefix_len;
+                if (rest[0] != '\0') {
+                    const char* slash = strchr(rest, '/');
+                    int comp_len = slash ? (int)(slash - rest) : (int)strlen(rest);
+                    if (comp_len > 0) {
+                        char entry[256];
+                        if (comp_len >= 255) comp_len = 255;
+                        strncpy(entry, rest, comp_len);
+                        entry[comp_len] = '\0';
+
+                        int is_dir = (slash != NULL) || name_is_dir;
+                        if (is_dir && strlen(entry) < 255) {
+                            strcat(entry, "/");
+                        }
+                        tar_add_list_entry(entries, &entry_count, entry);
+                    }
+                }
+            }
+        }
+
+        unsigned int size = get_size(header->size);
+        ptr += ((size + 511) / 512 + 1) * 512;
+    }
+
+    for (int i = 0; i < entry_count; i++) {
+        terminal_writestring(entries[i]);
+        terminal_writestring(" ");
+    }
+    terminal_writestring("\n");
+}
+
 // New function to check if a path exists in tar archive
 int tar_check_path_exists(void* archive, const char* path) {
     return tar_path_exists(archive, path);
@@ -189,63 +329,26 @@ void tar_get_directories(void* archive, char directories[][256], int* count) {
 // Твоя функция поиска
 void* tar_lookup(void* archive, const char* filename) {
     unsigned char* ptr = (unsigned char*)archive;
-    char buf[16];
-    char cbuf[2];
-    terminal_writestring("Tar lookup for: ");
-    terminal_writestring(filename);
-    terminal_writestring("\n");
 
     while (ptr[0] != '\0') {
         struct tar_header* header = (struct tar_header*)ptr;
-        terminal_writestring("Checking header: '");
-        terminal_writestring(header->name);
-        terminal_writestring("' against '");
-        terminal_writestring(filename);
-        terminal_writestring("'\n");
-
         int match = 1;
         int i;
         for (i = 0; filename[i] != '\0'; i++) {
             if (header->name[i] != filename[i]) {
-                terminal_writestring("Mismatch at pos ");
-                itoa(i, buf);
-                terminal_writestring(buf);
-                terminal_writestring(": header '");
-                cbuf[0] = header->name[i];
-                cbuf[1] = '\0';
-                terminal_writestring(cbuf);
-                terminal_writestring("' vs filename '");
-                cbuf[0] = filename[i];
-                terminal_writestring(cbuf);
-                terminal_writestring("'\n");
                 match = 0;
                 break;
             }
         }
         if (match) {
-            terminal_writestring("Prefix match, checking end at pos ");
-            itoa(i, buf);
-            terminal_writestring(buf);
-            terminal_writestring(": header char '");
-            cbuf[0] = header->name[i];
-            terminal_writestring(cbuf);
-            terminal_writestring("'\n");
             if (header->name[i] == '\0' || header->name[i] == ' ') {
-                terminal_writestring("Match found!\n");
                 return (void*)(ptr + 512);
-            } else {
-                terminal_writestring("End char not null or space, no match\n");
             }
         }
 
         unsigned int size = get_size(header->size);
-        itoa(size, buf);
-        terminal_writestring("Size: ");
-        terminal_writestring(buf);
-        terminal_writestring(", advancing\n");
         ptr += ((size + 511) / 512 + 1) * 512;
     }
-    terminal_writestring("No match found.\n");
     return NULL;
 }
 

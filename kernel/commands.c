@@ -13,6 +13,7 @@ extern void* tar_archive;
 extern void* tar_lookup(void* archive, const char* filename);
 extern int tar_check_path_exists(void* archive, const char* path);
 extern void tar_get_directories(void* archive, char directories[][256], int* count);
+extern void tar_list_directory(void* archive, const char* dirpath);
 extern int tar_get_file_size(void* archive, const char* filename);
 extern void start_gui();
 extern int get_current_uid();
@@ -220,7 +221,7 @@ static void execute_binary(const char* name) {
         terminal_writestring("Unsupported ELF architecture.\n");
         return;
     }
-    if (ehdr->e_entry < 0x200000) {
+    if (ehdr->e_entry < 0x100000) {
         terminal_writestring("Invalid entry point address.\n");
         return;
     }
@@ -229,7 +230,7 @@ static void execute_binary(const char* name) {
     Elf32_Phdr* phdr = (Elf32_Phdr*)((uint8_t*)data + ehdr->e_phoff);
     for (int i = 0; i < ehdr->e_phnum; i++) {
         if (phdr[i].p_type == PT_LOAD) {
-            if (phdr[i].p_vaddr < 0x200000) {
+            if (phdr[i].p_vaddr < 0x100000) {
                 terminal_writestring("Invalid load address.\n");
                 return;
             }
@@ -292,12 +293,10 @@ void kernel_execute_command(const char* input) {
         terminal_writestring("\n");
     }
     else if (strcmp(cmd, "ls") == 0) {
-        // Check if current directory exists in tar archive
-        if (tar_archive && tar_check_path_exists(tar_archive, current_dir)) {
-            // List files from tar archive
-            terminal_writestring("Contents from tar archive:\n");
-            // For now, just show that we're using tar
-            terminal_writestring("(Tar-based listing - implementation pending)\n");
+        // Prefer tar archive listing when available
+        if (tar_archive) {
+            tar_list_directory(tar_archive, current_dir);
+            return;
         } else {
             // Fall back to in-memory directory system
             if (strcmp(current_dir, "/") == 0) {
