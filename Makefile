@@ -39,22 +39,37 @@ OBJ = \
       kernel/gdtflush.o \
       modules.o
 
+USER_CFLAGS = -m32 -ffreestanding -O0 -fno-pie -no-pie
+USER_LDFLAGS = -m elf_i386 -e main -Ttext 0x200000 --unresolved-symbols=ignore-all
+
+USER_BIN = rootfs/bin/calc
+
 all: lakos.bin
 
 lakos.bin: $(OBJ)
 	$(LD) $(LDFLAGS) -o $@ $(OBJ)
 
-.PHONY: modules.tar
-modules.tar:
-	cd rootfs && find . -name "*.c" -o -name "*.h" | tar -cf ../$@ --transform 's|^\./||' -T -
-	cd rootfs && find . -maxdepth 2 -type f ! -name "*.c" ! -name "*.h" | tar -rf ../modules.tar --transform 's|^\./||' -T -
+.PHONY: modules.tar user_programs
+modules.tar: user_programs
+	rm -f modules.tar
+	cd rootfs && find . -type d ! -path . | tar --no-recursion -cf ../$@ --transform 's|^\./||' -T -
+	cd rootfs && find . -type f \( -name "*.c" -o -name "*.h" \) | tar -rf ../$@ --transform 's|^\./||' -T -
+	cd rootfs && find . -type f ! \( -name "*.c" -o -name "*.h" \) | tar -rf ../$@ --transform 's|^\./||' -T -
 
-iso: lakos.bin
+user_programs: $(USER_BIN)
+
+rootfs/bin/calc: rootfs/bin/calc.c
+	$(CC) $(USER_CFLAGS) -c $< -o /tmp/calc.o
+	$(LD) $(USER_LDFLAGS) -o $@ /tmp/calc.o
+
+iso: lakos.bin modules.tar
 	mkdir -p isodir/boot/grub
 	cp lakos.bin isodir/boot/
+	cp modules.tar isodir/boot/
 	echo 'set timeout=0' > isodir/boot/grub/grub.cfg
 	echo 'menuentry "Lakos OS" {' >> isodir/boot/grub/grub.cfg
 	echo '  multiboot /boot/lakos.bin' >> isodir/boot/grub/grub.cfg
+	echo '  module /boot/modules.tar' >> isodir/boot/grub/grub.cfg
 	echo '}' >> isodir/boot/grub/grub.cfg
 	grub-mkrescue -o lakos.iso isodir
 

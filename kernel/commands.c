@@ -5,6 +5,7 @@
 #include "include/version.h"
 #include "include/commands.h"
 #include <io.h>
+#include <string.h>
 
 extern void terminal_writestring(const char* s);
 extern void terminal_putchar(char c);
@@ -13,6 +14,7 @@ extern void* tar_archive;
 extern void* tar_lookup(void* archive, const char* filename);
 extern int tar_check_path_exists(void* archive, const char* path);
 extern void tar_get_directories(void* archive, char directories[][256], int* count);
+extern int tar_get_file_size(void* archive, const char* filename);
 extern void start_gui();
 extern int get_current_uid();
 extern int get_current_gid();
@@ -69,7 +71,7 @@ static file_t files[10];
 static int file_count = 0;
 
 static char dirs[10][32];
-static int dir_count = 3; // bin, dev, home
+static int dir_count = 0;
 
 static char home_dirs[10][32];
 static int home_dir_count = 0;
@@ -80,26 +82,50 @@ char current_dir[256] = "/";
 static char* pathbin = "/bin";
 
 void init_kernel_commands() {
-    // Initialize basic directories
-    strcpy(dirs[0], "bin");
-    strcpy(dirs[1], "dev");
-    strcpy(dirs[2], "home");
-    
     // If tar archive is available, get directories from it
     if (tar_archive) {
         char tar_dirs[100][256];
         int tar_count = 0;
         tar_get_directories(tar_archive, tar_dirs, &tar_count);
-        
-        // Add tar directories to our directory list
+
         for (int i = 0; i < tar_count && dir_count < 10; i++) {
-            // Only add top-level directories
+            if (tar_dirs[i][0] == '\0') {
+                continue;
+            }
+
             char* slash = strchr(tar_dirs[i], '/');
-            if (slash == 0 || slash == tar_dirs[i] + strlen(tar_dirs[i]) - 1) {
-                // This is a top-level directory
-                strcpy(dirs[dir_count++], tar_dirs[i]);
+            int name_len = 0;
+            if (slash) {
+                name_len = slash - tar_dirs[i];
+            } else {
+                name_len = strlen(tar_dirs[i]);
+            }
+
+            if (name_len <= 0 || name_len >= (int)sizeof(dirs[0])) {
+                continue;
+            }
+
+            char top_name[32];
+            strncpy(top_name, tar_dirs[i], name_len);
+            top_name[name_len] = '\0';
+
+            int exists = 0;
+            for (int d = 0; d < dir_count; d++) {
+                if (strcmp(dirs[d], top_name) == 0) {
+                    exists = 1;
+                    break;
+                }
+            }
+
+            if (!exists) {
+                strcpy(dirs[dir_count++], top_name);
             }
         }
+    } else {
+        // Fallback to basic directories when no tar archive present
+        strcpy(dirs[dir_count++], "bin");
+        strcpy(dirs[dir_count++], "dev");
+        strcpy(dirs[dir_count++], "home");
     }
 }
 
@@ -453,13 +479,42 @@ void kernel_execute_command(const char* input) {
         if (strlen(filename) == 0) {
             terminal_writestring("cat: missing file name\n");
         } else {
-            file_t* f = find_file(filename);
-            if (f) {
-                terminal_writestring(f->content);
-            } else {
-                terminal_writestring("cat: ");
-                terminal_writestring(filename);
-                terminal_writestring(": No such file\n");
+            int handled = 0;
+            if (tar_archive) {
+                char tar_path[256];
+                if (filename[0] == '/') {
+                    strcpy(tar_path, filename + 1);
+                } else if (strcmp(current_dir, "/") == 0) {
+                    strcpy(tar_path, filename);
+                } else {
+                    strcpy(tar_path, current_dir + 1);
+                    if (tar_path[strlen(tar_path) - 1] != '/') {
+                        strcat(tar_path, "/");
+                    }
+                    strcat(tar_path, filename);
+                }
+
+                void* data = tar_lookup(tar_archive, tar_path);
+                int size = tar_get_file_size(tar_archive, tar_path);
+                if (data && size >= 0) {
+                    char* bytes = (char*)data;
+                    for (int idx = 0; idx < size; idx++) {
+                        terminal_putchar(bytes[idx]);
+                    }
+                    terminal_putchar('\n');
+                    handled = 1;
+                }
+            }
+
+            if (!handled) {
+                file_t* f = find_file(filename);
+                if (f) {
+                    terminal_writestring(f->content);
+                } else {
+                    terminal_writestring("cat: ");
+                    terminal_writestring(filename);
+                    terminal_writestring(": No such file\n");
+                }
             }
         }
     }

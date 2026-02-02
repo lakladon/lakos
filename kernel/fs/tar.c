@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
+#include <string.h>
 #include "include/lib.h"
 
 extern void terminal_writestring(const char* s);
@@ -58,34 +59,97 @@ static int tar_path_exists(void* archive, const char* path) {
 }
 
 // Function to get all directories from tar archive
+static int tar_add_directory(char directories[][256], int* count, const char* name, int len) {
+    if (len <= 0 || *count >= 100) {
+        return 0;
+    }
+
+    char temp[256];
+    if (len >= 256) {
+        len = 255;
+    }
+    strncpy(temp, name, len);
+    temp[len] = '\0';
+
+    // Normalize: trim leading "./" and trailing '/'
+    if (temp[0] == '.' && temp[1] == '/') {
+        int shift = 2;
+        int i = 0;
+        while (temp[shift + i] != '\0') {
+            temp[i] = temp[shift + i];
+            i++;
+        }
+        temp[i] = '\0';
+    }
+
+    if (temp[0] == '\0') {
+        return 0;
+    }
+
+    int tlen = strlen(temp);
+    while (tlen > 0 && temp[tlen - 1] == '/') {
+        temp[tlen - 1] = '\0';
+        tlen--;
+    }
+    if (tlen == 0) {
+        return 0;
+    }
+
+    // Avoid duplicates
+    for (int i = 0; i < *count; i++) {
+        if (strcmp(directories[i], temp) == 0) {
+            return 0;
+        }
+    }
+
+    strcpy(directories[*count], temp);
+    (*count)++;
+    return 1;
+}
+
+static void tar_add_parent_directories(char directories[][256], int* count, const char* name, int len) {
+    if (len <= 0) {
+        return;
+    }
+
+    int limit = len;
+    if (limit >= 256) {
+        limit = 255;
+    }
+
+    char temp[256];
+    strncpy(temp, name, limit);
+    temp[limit] = '\0';
+
+    // Add each parent directory for nested paths
+    for (int i = 0; temp[i] != '\0'; i++) {
+        if (temp[i] == '/') {
+            tar_add_directory(directories, count, temp, i);
+        }
+    }
+    tar_add_directory(directories, count, temp, strlen(temp));
+}
+
 static void tar_get_all_directories(void* archive, char directories[][256], int* count) {
     unsigned char* ptr = (unsigned char*)archive;
     *count = 0;
-    
+
     while (ptr[0] != '\0') {
         struct tar_header* header = (struct tar_header*)ptr;
-        
-        // Check if this is a directory entry
-        if (header->typeflag == '5' || header->typeflag == 'D') {
-            // Add directory to list
-            if (*count < 100) { // Limit to prevent overflow
-                strcpy(directories[*count], header->name);
-                (*count)++;
-            }
-        } else {
-            // Check if this is a file and extract its directory path
-            char* last_slash = strrchr(header->name, '/');
-            if (last_slash != NULL) {
-                // Extract directory path
-                int dir_len = last_slash - header->name;
-                if (dir_len > 0 && *count < 100) {
-                    strncpy(directories[*count], header->name, dir_len);
-                    directories[*count][dir_len] = '\0';
-                    (*count)++;
+
+        if (header->name[0] != '\0') {
+            int name_len = strlen(header->name);
+            if (header->typeflag == '5' || header->typeflag == 'D') {
+                tar_add_parent_directories(directories, count, header->name, name_len);
+            } else {
+                char* last_slash = strrchr(header->name, '/');
+                if (last_slash != NULL) {
+                    int dir_len = last_slash - header->name;
+                    tar_add_parent_directories(directories, count, header->name, dir_len);
                 }
             }
         }
-        
+
         unsigned int size = get_size(header->size);
         ptr += ((size + 511) / 512 + 1) * 512;
     }
@@ -184,4 +248,21 @@ void* tar_lookup(void* archive, const char* filename) {
     }
     terminal_writestring("No match found.\n");
     return NULL;
+}
+
+// Get file size for a given path in the tar archive
+int tar_get_file_size(void* archive, const char* filename) {
+    unsigned char* ptr = (unsigned char*)archive;
+
+    while (ptr[0] != '\0') {
+        struct tar_header* header = (struct tar_header*)ptr;
+        if (strcmp(header->name, filename) == 0) {
+            return (int)get_size(header->size);
+        }
+
+        unsigned int size = get_size(header->size);
+        ptr += ((size + 511) / 512 + 1) * 512;
+    }
+
+    return -1;
 }
