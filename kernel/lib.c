@@ -82,7 +82,7 @@ char* strcat(char* dest, const char* src) {
 }
 
 char* strrchr(const char* s, int c) {
-    const char* last = NULL;
+    const char* last = 0;
     while (*s) {
         if (*s == c) last = s;
         s++;
