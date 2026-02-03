@@ -65,6 +65,11 @@ jobs:
       - name: Build Kernel and ISO
         run: make clean iso
 
+      - name: Calculate build date
+        id: build_date
+        run: |
+          echo "date=$(date -u +\"%Y-%m-%d %H:%M:%S UTC\")" >> "$GITHUB_OUTPUT"
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -75,7 +80,7 @@ jobs:
 
             ### Сборка информации
             - **Версия:** ${{ steps.version.outputs.version }}
-            - **Дата сборки:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+            - **Дата сборки:** ${{ steps.build_date.outputs.date }}
             - **Коммит:** [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
             - **ID запуска:** ${{ github.run_id }}
             - **Номер сборки:** ${{ github.run_number }}
