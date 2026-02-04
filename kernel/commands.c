@@ -4,6 +4,7 @@
 #include "include/crypt.h"
 #include "include/version.h"
 #include "include/commands.h"
+#include <stddef.h>
 #include <io.h>
 
 extern void terminal_writestring(const char* s);
@@ -26,7 +27,6 @@ extern void ata_write_sector(uint8_t drive, uint32_t lba, uint16_t* buffer);
 // ELF definitions for basic loading
 #define EI_NIDENT 16
 #define PT_LOAD 1
-
 typedef uint32_t Elf32_Addr;
 typedef uint16_t Elf32_Half;
 typedef uint32_t Elf32_Off;
