@@ -715,6 +715,54 @@ void kernel_execute_command(const char* input) {
         while (*dest == ' ') dest++;
         
         if (strlen(src_name) > 0 && strlen(dest) > 0) {
+            // Check if source is in tar archive
+            if (tar_archive) {
+                char tar_src_path[256];
+                if (src_name[0] == '/') {
+                    strcpy(tar_src_path, src_name + 1);
+                } else if (strcmp(current_dir, "/") == 0) {
+                    strcpy(tar_src_path, src_name);
+                } else {
+                    strcpy(tar_src_path, current_dir + 1);
+                    if (tar_src_path[strlen(tar_src_path) - 1] != '/') {
+                        strcat(tar_src_path, "/");
+                    }
+                    strcat(tar_src_path, src_name);
+                }
+                
+                void* src_data = tar_lookup(tar_archive, tar_src_path);
+                int src_size = tar_get_file_size(tar_archive, tar_src_path);
+                
+                if (src_data && src_size >= 0) {
+                    // Check if destination is in tar archive
+                    char tar_dest_path[256];
+                    if (dest[0] == '/') {
+                        strcpy(tar_dest_path, dest + 1);
+                    } else if (strcmp(current_dir, "/") == 0) {
+                        strcpy(tar_dest_path, dest);
+                    } else {
+                        strcpy(tar_dest_path, current_dir + 1);
+                        if (tar_dest_path[strlen(tar_dest_path) - 1] != '/') {
+                            strcat(tar_dest_path, "/");
+                        }
+                        strcat(tar_dest_path, dest);
+                    }
+                    
+                    int result = tar_write_file(tar_archive, tar_dest_path, src_data, src_size);
+                    if (result == 0) {
+                        terminal_writestring("cp: copied '");
+                        terminal_writestring(src_name);
+                        terminal_writestring("' to '");
+                        terminal_writestring(dest);
+                        terminal_writestring("' in tar archive\n");
+                    } else {
+                        terminal_writestring("cp: cannot write to tar archive\n");
+                    }
+                    return;
+                }
+            }
+            
+            // Fall back to in-memory file system
             file_t* s = find_file(src_name);
             if (s) {
                 file_t* d = find_file(dest);
@@ -737,6 +785,259 @@ void kernel_execute_command(const char* input) {
             }
         } else {
             terminal_writestring("Usage: cp <source> <dest>\n");
+        }
+    }
+    else if (strcmp(cmd, "touch") == 0) {
+        const char* filename = args;
+        if (strlen(filename) == 0) {
+            terminal_writestring("touch: missing file name\n");
+        } else {
+            // Check if tar archive is available
+            if (tar_archive) {
+                char tar_path[256];
+                if (filename[0] == '/') {
+                    strcpy(tar_path, filename + 1);
+                } else if (strcmp(current_dir, "/") == 0) {
+                    strcpy(tar_path, filename);
+                } else {
+                    strcpy(tar_path, current_dir + 1);
+                    if (tar_path[strlen(tar_path) - 1] != '/') {
+                        strcat(tar_path, "/");
+                    }
+                    strcat(tar_path, filename);
+                }
+                
+                // Check if file already exists
+                if (tar_check_path_exists(tar_archive, tar_path)) {
+                    terminal_writestring("touch: file '");
+                    terminal_writestring(filename);
+                    terminal_writestring("' already exists\n");
+                } else {
+                    // Try to create the file
+                    int result = tar_create_file(tar_archive, tar_path, NULL, 0);
+                    if (result == 0) {
+                        terminal_writestring("touch: created file '");
+                        terminal_writestring(filename);
+                        terminal_writestring("' in tar archive\n");
+                    } else {
+                        terminal_writestring("touch: cannot create file in tar archive\n");
+                    }
+                }
+            } else {
+                // Fall back to in-memory file system
+                file_t* f = find_file(filename);
+                if (!f) {
+                    f = create_file(filename);
+                    if (f) {
+                        terminal_writestring("touch: created file '");
+                        terminal_writestring(filename);
+                        terminal_writestring("'\n");
+                    } else {
+                        terminal_writestring("touch: failed to create file\n");
+                    }
+                } else {
+                    terminal_writestring("touch: file '");
+                    terminal_writestring(filename);
+                    terminal_writestring("' already exists\n");
+                }
+            }
+        }
+    }
+    else if (strcmp(cmd, "mkdir") == 0) {
+        const char* dirname = args;
+        if (strlen(dirname) == 0) {
+            terminal_writestring("mkdir: missing directory name\n");
+        } else {
+            // Check if tar archive is available
+            if (tar_archive) {
+                char tar_path[256];
+                if (dirname[0] == '/') {
+                    strcpy(tar_path, dirname + 1);
+                } else if (strcmp(current_dir, "/") == 0) {
+                    strcpy(tar_path, dirname);
+                } else {
+                    strcpy(tar_path, current_dir + 1);
+                    if (tar_path[strlen(tar_path) - 1] != '/') {
+                        strcat(tar_path, "/");
+                    }
+                    strcat(tar_path, dirname);
+                }
+                
+                // Check if directory already exists
+                if (tar_check_path_exists(tar_archive, tar_path)) {
+                    terminal_writestring("mkdir: directory '");
+                    terminal_writestring(dirname);
+                    terminal_writestring("' already exists\n");
+                } else {
+                    // Try to create the directory
+                    int result = tar_create_directory(tar_archive, tar_path);
+                    if (result == 0) {
+                        terminal_writestring("mkdir: created directory '");
+                        terminal_writestring(dirname);
+                        terminal_writestring("' in tar archive\n");
+                    } else {
+                        terminal_writestring("mkdir: cannot create directory in tar archive\n");
+                    }
+                }
+            } else {
+                // Fall back to in-memory directory system
+                if (strcmp(current_dir, "/home") == 0) {
+                    if (home_dir_count >= 10) {
+                        terminal_writestring("mkdir: too many directories\n");
+                    } else {
+                        int len = strlen(dirname);
+                        if (len >= 32) {
+                            terminal_writestring("mkdir: directory name too long\n");
+                        } else {
+                            strcpy(home_dirs[home_dir_count++], dirname);
+                            terminal_writestring("mkdir: created directory '");
+                            terminal_writestring(dirname);
+                            terminal_writestring("'\n");
+                        }
+                    }
+                } else if (strncmp(current_dir, "/home/", 6) == 0) {
+                    const char* parent = current_dir + 6;
+                    int parent_len = 0;
+                    while (parent[parent_len] && parent[parent_len] != '/') parent_len++;
+                    char parent_name[32];
+                    if (parent_len >= 32) parent_len = 31;
+                    for (int k = 0; k < parent_len; k++) parent_name[k] = parent[k];
+                    parent_name[parent_len] = '\0';
+                    for (int i = 0; i < home_dir_count; i++) {
+                        if (strcmp(home_dirs[i], parent_name) == 0) {
+                            if (home_sub_count[i] >= 10) {
+                                terminal_writestring("mkdir: too many subdirectories\n");
+                            } else {
+                                int len = strlen(dirname);
+                                if (len >= 32) {
+                                    terminal_writestring("mkdir: directory name too long\n");
+                                } else {
+                                    strcpy(home_subdirs[i][home_sub_count[i]++], dirname);
+                                    terminal_writestring("mkdir: created directory '");
+                                    terminal_writestring(dirname);
+                                    terminal_writestring("'\n");
+                                }
+                            }
+                            return;
+                        }
+                    }
+                    terminal_writestring("mkdir: parent directory not found\n");
+                } else {
+                    terminal_writestring("mkdir: can only create directories in /home\n");
+                }
+            }
+        }
+    }
+    else if (strcmp(cmd, "rm") == 0) {
+        const char* filename = args;
+        if (strlen(filename) == 0) {
+            terminal_writestring("rm: missing file name\n");
+        } else {
+            // Check if tar archive is available
+            if (tar_archive) {
+                char tar_path[256];
+                if (filename[0] == '/') {
+                    strcpy(tar_path, filename + 1);
+                } else if (strcmp(current_dir, "/") == 0) {
+                    strcpy(tar_path, filename);
+                } else {
+                    strcpy(tar_path, current_dir + 1);
+                    if (tar_path[strlen(tar_path) - 1] != '/') {
+                        strcat(tar_path, "/");
+                    }
+                    strcat(tar_path, filename);
+                }
+                
+                // Try to delete the file
+                int result = tar_delete_file(tar_archive, tar_path);
+                if (result == 0) {
+                    terminal_writestring("rm: removed '");
+                    terminal_writestring(filename);
+                    terminal_writestring("' from tar archive\n");
+                } else {
+                    terminal_writestring("rm: cannot delete file from tar archive\n");
+                }
+            } else {
+                // Fall back to in-memory file system
+                file_t* f = find_file(filename);
+                if (f) {
+                    strcpy(f->name, "");
+                    f->size = 0;
+                    terminal_writestring("rm: removed '");
+                    terminal_writestring(filename);
+                    terminal_writestring("'\n");
+                } else {
+                    terminal_writestring("rm: ");
+                    terminal_writestring(filename);
+                    terminal_writestring(": No such file\n");
+                }
+            }
+        }
+    }
+    else if (strcmp(cmd, "info") == 0) {
+        const char* filename = args;
+        if (strlen(filename) == 0) {
+            terminal_writestring("info: missing file name\n");
+        } else {
+            // Check if tar archive is available
+            if (tar_archive) {
+                char tar_path[256];
+                if (filename[0] == '/') {
+                    strcpy(tar_path, filename + 1);
+                } else if (strcmp(current_dir, "/") == 0) {
+                    strcpy(tar_path, filename);
+                } else {
+                    strcpy(tar_path, current_dir + 1);
+                    if (tar_path[strlen(tar_path) - 1] != '/') {
+                        strcat(tar_path, "/");
+                    }
+                    strcat(tar_path, filename);
+                }
+                
+                unsigned int size;
+                char type[32];
+                char permissions[16];
+                
+                if (tar_get_file_info(tar_archive, tar_path, &size, type, permissions)) {
+                    terminal_writestring("File: ");
+                    terminal_writestring(filename);
+                    terminal_writestring("\n");
+                    terminal_writestring("Size: ");
+                    char buf[16];
+                    itoa(size, buf);
+                    terminal_writestring(buf);
+                    terminal_writestring(" bytes\n");
+                    terminal_writestring("Type: ");
+                    terminal_writestring(type);
+                    terminal_writestring("\n");
+                    terminal_writestring("Permissions: ");
+                    terminal_writestring(permissions);
+                    terminal_writestring("\n");
+                } else {
+                    terminal_writestring("info: ");
+                    terminal_writestring(filename);
+                    terminal_writestring(": No such file\n");
+                }
+            } else {
+                // Fall back to in-memory file system
+                file_t* f = find_file(filename);
+                if (f) {
+                    terminal_writestring("File: ");
+                    terminal_writestring(filename);
+                    terminal_writestring("\n");
+                    terminal_writestring("Size: ");
+                    char buf[16];
+                    itoa(f->size, buf);
+                    terminal_writestring(buf);
+                    terminal_writestring(" bytes\n");
+                    terminal_writestring("Type: regular\n");
+                    terminal_writestring("Permissions: 644\n");
+                } else {
+                    terminal_writestring("info: ");
+                    terminal_writestring(filename);
+                    terminal_writestring(": No such file\n");
+                }
+            }
         }
     }
     else if (strstr(input, " >> ")) {

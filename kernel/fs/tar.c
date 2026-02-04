@@ -368,3 +368,159 @@ int tar_get_file_size(void* archive, const char* filename) {
 
     return -1;
 }
+
+// Function to write data to a file in the tar archive
+// Note: This is a simplified implementation that would need to be expanded
+// for a full write capability, as tar archives are typically read-only
+int tar_write_file(void* archive, const char* filename, const void* data, unsigned int size) {
+    // For now, this is a placeholder that returns an error
+    // indicating that writing to tar archives is not supported
+    return -1; // Not supported
+}
+
+// Function to create a new file in the tar archive
+// This is a simplified implementation for demonstration
+int tar_create_file(void* archive, const char* filename, const void* data, unsigned int size) {
+    // This would require:
+    // 1. Finding the end of the current tar archive
+    // 2. Creating a new tar header for the file
+    // 3. Writing the header and data to the end of the archive
+    // 4. Updating the archive structure
+    
+    // For now, return error as this is complex to implement
+    // in a read-only memory-mapped tar archive
+    return -1; // Not supported in current implementation
+}
+
+// Function to update an existing file in the tar archive
+// This would require rewriting the entire archive
+int tar_update_file(void* archive, const char* filename, const void* data, unsigned int size) {
+    // This is even more complex as it requires:
+    // 1. Finding the existing file
+    // 2. Creating a new tar archive with updated content
+    // 3. Replacing the old archive
+    
+    return -1; // Not supported in current implementation
+}
+
+// Function to append data to an existing file in the tar archive
+int tar_append_file(void* archive, const char* filename, const void* data, unsigned int size) {
+    // This would require:
+    // 1. Finding the existing file
+    // 2. Reading the current content
+    // 3. Creating a new file with combined content
+    // 4. Replacing the old file
+    
+    return -1; // Not supported in current implementation
+}
+
+// Function to delete a file from the tar archive
+int tar_delete_file(void* archive, const char* filename) {
+    // This would require:
+    // 1. Finding the file to delete
+    // 2. Creating a new tar archive without that file
+    // 3. Replacing the old archive
+    
+    return -1; // Not supported in current implementation
+}
+
+// Function to create a directory in the tar archive
+int tar_create_directory(void* archive, const char* dirname) {
+    // This would require:
+    // 1. Creating a new tar header with typeflag '5' (directory)
+    // 2. Adding it to the end of the archive
+    
+    return -1; // Not supported in current implementation
+}
+
+// Enhanced function to check if a path exists (supports nested paths)
+int tar_path_exists_enhanced(void* archive, const char* path) {
+    if (!path || path[0] == '\0') return 0;
+    
+    // Normalize path
+    char norm_path[256];
+    if (path[0] == '/') {
+        strcpy(norm_path, path + 1);
+    } else {
+        strcpy(norm_path, path);
+    }
+    
+    // Remove trailing slash
+    int len = strlen(norm_path);
+    while (len > 0 && norm_path[len - 1] == '/') {
+        norm_path[--len] = '\0';
+    }
+    
+    if (len == 0) return 1; // Root exists
+    
+    unsigned char* ptr = (unsigned char*)archive;
+    
+    while (ptr[0] != '\0') {
+        struct tar_header* header = (struct tar_header*)ptr;
+        
+        // Check exact match
+        if (strcmp(header->name, norm_path) == 0) {
+            return 1;
+        }
+        
+        // Check if this is a parent directory
+        int name_len = strlen(header->name);
+        if (name_len > 0 && header->name[name_len - 1] == '/') {
+            name_len--; // Remove trailing slash for comparison
+        }
+        
+        if (name_len > 0 && strncmp(header->name, norm_path, name_len) == 0) {
+            if (norm_path[name_len] == '/' || norm_path[name_len] == '\0') {
+                return 1;
+            }
+        }
+        
+        unsigned int size = get_size(header->size);
+        ptr += ((size + 511) / 512 + 1) * 512;
+    }
+    
+    return 0;
+}
+
+// Function to get file information (size, type, permissions)
+int tar_get_file_info(void* archive, const char* filename, unsigned int* size, char* type, char* permissions) {
+    unsigned char* ptr = (unsigned char*)archive;
+    
+    while (ptr[0] != '\0') {
+        struct tar_header* header = (struct tar_header*)ptr;
+        
+        if (strcmp(header->name, filename) == 0) {
+            if (size) *size = get_size(header->size);
+            if (type) {
+                switch (header->typeflag) {
+                    case '0': case '\0': strcpy(type, "regular"); break;
+                    case '1': strcpy(type, "hardlink"); break;
+                    case '2': strcpy(type, "symlink"); break;
+                    case '3': strcpy(type, "character"); break;
+                    case '4': strcpy(type, "block"); break;
+                    case '5': strcpy(type, "directory"); break;
+                    case '6': strcpy(type, "fifo"); break;
+                    default: strcpy(type, "unknown"); break;
+                }
+            }
+            if (permissions) {
+                strncpy(permissions, header->mode, 8);
+                permissions[8] = '\0';
+            }
+            return 1; // Found
+        }
+        
+        unsigned int file_size = get_size(header->size);
+        ptr += ((file_size + 511) / 512 + 1) * 512;
+    }
+    
+    return 0; // Not found
+}
+// Функция для записи данных в файл в tar-архиве
+// Примечание. Это упрощенная реализация, которую необходимо расширить.
+// для полной записи, поскольку tar-архивы обычно доступны только для чтения
+int tar_write_file(void* archive, const char* filename, const void* data, unsigned int size) {
+   // На данный момент это заполнитель, который возвращает ошибку
+    // указываем, что запись в tar-архивы не поддерживается
+    return -1; // Not supported
+}
