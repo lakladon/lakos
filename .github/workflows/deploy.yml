@@ -68,7 +68,7 @@ jobs:
       - name: Calculate build date
         id: build_date
         run: |
-          echo "date=$(date -u +\"%Y-%m-%d %H:%M:%S UTC\")" >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> "$GITHUB_OUTPUT"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
