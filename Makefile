@@ -29,6 +29,7 @@ OBJ = \
       kernel/crypt.o \
       kernel/tasks.o \
       kernel/fs/tar.o \
+      kernel/fs/fat32.o \
       kernel/gdt.o \
       kernel/idt.o \
       kernel/isr.o \
