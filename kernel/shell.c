@@ -96,7 +96,7 @@ static const char* available_commands[] = {
     "help", "cls", "ver", "pwd", "ls", "cd", "echo", "uname", "date", 
     "cat", "mkdir", "disks", "read_sector", "write_sector", "mount",
     "useradd", "passwd", "login", "userdel", "crypt", "whoami", 
-    "touch", "rm", "cp", "shutdown", "reboot", "gui", "hello", "test", "editor", "calc"
+    "touch", "rm", "cp", "shutdown", "reboot", "gui", "hello", "test", "editor", "calc", "task"
 };
 static int commands_count = 32;
 

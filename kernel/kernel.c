@@ -122,6 +122,7 @@ extern void ata_read_sectors(uint8_t drive, uint32_t lba, uint16_t* buffer, uint
 extern void mouse_install();
 extern void shell_main();
 extern void init_kernel_commands();
+extern void task_create_system(const char* title, const char* description, uint16_t sys_type, uint16_t priority);
 
 void* tar_archive = 0;
 
@@ -332,6 +333,13 @@ void kmain(multiboot_info_t* mb_info, uint32_t magic) {
 
     __asm__ volatile("sti");
     init_kernel_commands();
+    
+    // Create built-in system tasks
+    task_create_system("Memory Cleanup", "Periodic memory cleanup", 0, 2);
+    task_create_system("Disk Check", "Periodic disk integrity check", 1, 2);
+    task_create_system("Cache Flush", "Flush all caches", 2, 3);
+    task_create_system("User Sync", "Sync user data", 4, 2);
+    
     shell_main();
 
     while(1) { __asm__ volatile("hlt"); }

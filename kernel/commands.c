@@ -4,6 +4,7 @@
 #include "include/crypt.h"
 #include "include/version.h"
 #include "include/commands.h"
+#include "include/tasks.h"
 #include <io.h>
 
 extern void terminal_writestring(const char* s);
@@ -82,6 +83,9 @@ char current_dir[256] = "/";
 static char* pathbin = "/bin";
 
 void init_kernel_commands() {
+    // Initialize task management system
+    tasks_init();
+    
     // If tar archive is available, get directories from it
     if (tar_archive) {
         char tar_dirs[100][256];
@@ -305,7 +309,7 @@ void kernel_execute_command(const char* input) {
     while (*args == ' ') args++;
 
     if (strcmp(cmd, "help") == 0) {
-        terminal_writestring("Lakos OS Commands: help, cls, ver, pwd, ls, cd, echo, uname, date, cat, mkdir, disks, read_sector, write_sector, mount, useradd, passwd, login, userdel, crypt, whoami, touch, rm, cp, shutdown, reboot, gui\nAvailable programs: hello, test, editor, calc\n");
+        terminal_writestring("Lakos OS Commands: help, cls, ver, pwd, ls, cd, echo, uname, date, cat, mkdir, disks, read_sector, write_sector, mount, useradd, passwd, login, userdel, crypt, whoami, touch, rm, cp, shutdown, reboot, gui, task\nAvailable programs: hello, test, editor, calc\n");
     }
     else if (strcmp(cmd, "cls") == 0) {
         terminal_initialize();
@@ -963,6 +967,227 @@ void kernel_execute_command(const char* input) {
         reboot();
     } else if (strcmp(cmd, "gui") == 0) {
         start_gui();
+    } else if (strcmp(cmd, "task") == 0) {
+        // Task management commands
+        if (strlen(args) == 0) {
+            // No subcommand, show all tasks
+            task_list_all();
+        } else {
+            // Parse subcommand
+            const char* subcmd = args;
+            char subcommand[32];
+            int i = 0;
+            while (subcmd[i] && subcmd[i] != ' ' && i < 31) {
+                subcommand[i] = subcmd[i];
+                i++;
+            }
+            subcommand[i] = '\0';
+            
+            const char* subargs = subcmd + i;
+            while (*subargs == ' ') subargs++;
+            
+            if (strcmp(subcommand, "add") == 0) {
+                // task add "title" "description"
+                if (strlen(subargs) > 0) {
+                    char title[64];
+                    char desc[256];
+                    int title_end = 0;
+                    int desc_end = 0;
+                    const char* p = subargs;
+                    
+                    // Extract title (between quotes)
+                    if (*p == '"') {
+                        p++;
+                        while (*p && *p != '"' && title_end < 63) {
+                            title[title_end++] = *p++;
+                        }
+                        title[title_end] = '\0';
+                        if (*p == '"') p++;
+                    }
+                    
+                    // Skip spaces
+                    while (*p == ' ') p++;
+                    
+                    // Extract description (between quotes)
+                    if (*p == '"') {
+                        p++;
+                        while (*p && *p != '"' && desc_end < 255) {
+                            desc[desc_end++] = *p++;
+                        }
+                        desc[desc_end] = '\0';
+                    }
+                    
+                    if (title_end > 0) {
+                        uint16_t task_id = task_create(title, desc, PRIORITY_NORMAL, 0);
+                        if (task_id > 0) {
+                            terminal_writestring("Task created with ID: ");
+                            char id_str[8];
+                            itoa(task_id, id_str);
+                            terminal_writestring(id_str);
+                            terminal_writestring("\n");
+                        } else {
+                            terminal_writestring("Failed to create task\n");
+                        }
+                    } else {
+                        terminal_writestring("Usage: task add \"title\" \"description\"\n");
+                    }
+                } else {
+                    terminal_writestring("Usage: task add \"title\" \"description\"\n");
+                }
+            } else if (strcmp(subcommand, "list") == 0) {
+                task_list_all();
+            } else if (strcmp(subcommand, "show") == 0) {
+                if (strlen(subargs) > 0) {
+                    uint16_t task_id = atoi(subargs);
+                    task_show_details(task_id);
+                } else {
+                    terminal_writestring("Usage: task show <id>\n");
+                }
+            } else if (strcmp(subcommand, "delete") == 0) {
+                if (strlen(subargs) > 0) {
+                    uint16_t task_id = atoi(subargs);
+                    if (task_delete(task_id)) {
+                        terminal_writestring("Task deleted\n");
+                    } else {
+                        terminal_writestring("Task not found\n");
+                    }
+                } else {
+                    terminal_writestring("Usage: task delete <id>\n");
+                }
+            } else if (strcmp(subcommand, "status") == 0) {
+                // task status <id> <status>
+                const char* p = subargs;
+                uint16_t task_id = atoi(p);
+                while (*p && *p >= '0' && *p <= '9') p++;
+                while (*p == ' ') p++;
+                
+                task_status_t status = TASK_PENDING;
+                if (strcmp(p, "pending") == 0) status = TASK_PENDING;
+                else if (strcmp(p, "running") == 0) status = TASK_RUNNING;
+                else if (strcmp(p, "completed") == 0) status = TASK_COMPLETED;
+                else if (strcmp(p, "paused") == 0) status = TASK_PAUSED;
+                else if (strcmp(p, "failed") == 0) status = TASK_FAILED;
+                
+                if (task_update_status(task_id, status)) {
+                    terminal_writestring("Task status updated\n");
+                } else {
+                    terminal_writestring("Task not found\n");
+                }
+            } else if (strcmp(subcommand, "progress") == 0) {
+                // task progress <id> <percentage>
+                const char* p = subargs;
+                uint16_t task_id = atoi(p);
+                while (*p && *p >= '0' && *p <= '9') p++;
+                while (*p == ' ') p++;
+                uint8_t progress = atoi(p);
+                
+                if (task_set_progress(task_id, progress)) {
+                    terminal_writestring("Task progress updated\n");
+                } else {
+                    terminal_writestring("Task not found\n");
+                }
+            } else if (strcmp(subcommand, "system") == 0) {
+                // task system [list|create|run]
+                const char* sys_subcmd = subargs;
+                char sys_subcommand[32];
+                int i = 0;
+                while (sys_subcmd[i] && sys_subcmd[i] != ' ' && i < 31) {
+                    sys_subcommand[i] = sys_subcmd[i];
+                    i++;
+                }
+                sys_subcommand[i] = '\0';
+                
+                const char* sys_subargs = sys_subcmd + i;
+                while (*sys_subargs == ' ') sys_subargs++;
+                
+                if (strcmp(sys_subcommand, "list") == 0) {
+                    task_list_system();
+                } else if (strcmp(sys_subcommand, "user") == 0) {
+                    task_list_user();
+                } else if (strcmp(sys_subcommand, "create") == 0) {
+                    // task system create <type> "description"
+                    const char* p = sys_subargs;
+                    uint16_t sys_type = atoi(p);
+                    while (*p && *p >= '0' && *p <= '9') p++;
+                    while (*p == ' ') p++;
+                    
+                    char desc[256];
+                    int desc_len = 0;
+                    
+                    // Extract description if provided
+                    if (*p == '"') {
+                        p++;
+                        while (*p && *p != '"' && desc_len < 255) {
+                            desc[desc_len++] = *p++;
+                        }
+                        desc[desc_len] = '\0';
+                    } else {
+                        desc[0] = '\0';
+                    }
+                    
+                    // System task type names
+                    const char* type_name = "";
+                    switch (sys_type) {
+                        case SYS_TASK_MEMORY_CLEANUP: type_name = "Memory Cleanup"; break;
+                        case SYS_TASK_DISK_CHECK: type_name = "Disk Check"; break;
+                        case SYS_TASK_CACHE_FLUSH: type_name = "Cache Flush"; break;
+                        case SYS_TASK_LOG_ROTATE: type_name = "Log Rotate"; break;
+                        case SYS_TASK_USER_SYNC: type_name = "User Sync"; break;
+                        default: type_name = "Custom"; break;
+                    }
+                    
+                    uint16_t task_id = task_create_system(type_name, desc, sys_type, PRIORITY_HIGH);
+                    if (task_id > 0) {
+                        terminal_writestring("System task created with ID: ");
+                        char id_str[8];
+                        itoa(task_id, id_str);
+                        terminal_writestring(id_str);
+                        terminal_writestring("\n");
+                    } else {
+                        terminal_writestring("Failed to create system task\n");
+                    }
+                } else if (strcmp(sys_subcommand, "run") == 0) {
+                    // task system run <id>
+                    if (strlen(sys_subargs) > 0) {
+                        uint16_t task_id = atoi(sys_subargs);
+                        if (execute_system_task(task_id)) {
+                            terminal_writestring("System task executed successfully\n");
+                        } else {
+                            terminal_writestring("Failed to execute system task\n");
+                        }
+                    } else {
+                        terminal_writestring("Usage: task system run <id>\n");
+                    }
+                } else if (strcmp(sys_subcommand, "stats") == 0) {
+                    terminal_writestring("=== Task Statistics ===\n");
+                    terminal_writestring("Total tasks: ");
+                    char count_str[4];
+                    itoa(task_count(), count_str);
+                    terminal_writestring(count_str);
+                    terminal_writestring("\n");
+                    
+                    terminal_writestring("System tasks: ");
+                    itoa(task_count_system(), count_str);
+                    terminal_writestring(count_str);
+                    terminal_writestring("\n");
+                    
+                    terminal_writestring("User tasks: ");
+                    itoa(task_count_user(), count_str);
+                    terminal_writestring(count_str);
+                    terminal_writestring("\n");
+                } else {
+                    terminal_writestring("Unknown system subcommand: ");
+                    terminal_writestring(sys_subcommand);
+                    terminal_writestring("\n");
+                    terminal_writestring("Usage: task system [list|user|create|run|stats]\n");
+                }
+            } else {
+                terminal_writestring("Unknown task subcommand: ");
+                terminal_writestring(subcommand);
+                terminal_writestring("\n");
+                terminal_writestring("Usage: task [add|list|show|delete|status|progress|system]\n");
+            }
+        }
     } else {
         if (is_file_in_path(cmd, pathbin)) {
             execute_binary(cmd);

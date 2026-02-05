@@ -27,6 +27,7 @@ OBJ = \
       kernel/gui.o \
       kernel/users.o \
       kernel/crypt.o \
+      kernel/tasks.o \
       kernel/fs/tar.o \
       kernel/gdt.o \
       kernel/idt.o \
