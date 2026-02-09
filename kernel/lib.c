@@ -126,3 +126,15 @@ void itoa(int n, char* buf) {
         buf[i-1-j] = t;
     }
 }
+
+int snprintf(char* str, unsigned int size, const char* format, ...) {
+    // Simple implementation that just copies the format string
+    // This is a minimal implementation for our kernel
+    unsigned int i = 0;
+    while (format[i] != '\0' && i < size - 1) {
+        str[i] = format[i];
+        i++;
+    }
+    str[i] = '\0';
+    return i;
+}

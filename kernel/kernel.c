@@ -201,7 +201,6 @@ uint32_t detect_memory_size(multiboot_info_t* mb_info) {
 // CPU feature detection
 uint32_t detect_cpu_features() {
     uint32_t features = 0;
-    uint32_t eax, ebx, ecx, edx;
     
     // Check for CPUID support
     __asm__ volatile(
@@ -225,6 +224,7 @@ uint32_t detect_cpu_features() {
 
 // Enhanced boot sequence with system info
 void kmain(multiboot_info_t* mb_info, uint32_t magic) {
+    (void)magic; // Suppress unused parameter warning
     terminal_initialize();
 
     // Initialize system information

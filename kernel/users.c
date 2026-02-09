@@ -16,6 +16,8 @@ char current_user[32] = "";
 
 #include "include/lib.h"
 
+extern void terminal_writestring(const char*);
+extern void terminal_putchar(char c);
 extern void ata_read_sector(uint8_t drive, uint32_t lba, uint16_t* buffer);
 extern void ata_write_sector(uint8_t drive, uint32_t lba, uint16_t* buffer);
 extern int ata_identify(uint8_t drive);

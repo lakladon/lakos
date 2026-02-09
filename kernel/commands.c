@@ -154,13 +154,13 @@ static int is_file_in_path(const char* name, const char* path) {
     }
     // Remove leading '/' from path if present
     const char* clean_path = path;
-    if (clean_path[0] == '/' && clean_path[1] != '\\0') {
+    if (clean_path[0] == '/' && clean_path[1] != '\0') {
         clean_path++;
     }
     char tar_path[256];
     // Construct tar lookup path: "<clean_path>/<name>"
     // Ensure no double slashes
-    if (clean_path[0] == '\\0') {
+    if (clean_path[0] == '\0') {
         // Empty path, just use name
         snprintf(tar_path, sizeof(tar_path), "%s", name);
     } else {
