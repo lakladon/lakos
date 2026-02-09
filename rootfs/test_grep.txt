@@ -1,0 +1,5 @@
+Hello world
+This is a test file
+grep should find this line
+Another line for testing
+The quick brown fox jumps over the lazy dog

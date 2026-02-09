@@ -309,6 +309,43 @@ static void execute_binary(const char* name) {
 }
 
 void kernel_execute_command(const char* input) {
+    // Check for pipe operator
+    const char* pipe_pos = strchr(input, '|');
+    if (pipe_pos) {
+        // Handle pipe
+        char left_cmd[256];
+        char right_cmd[256];
+        
+        // Extract left command (everything before the pipe)
+        int left_len = pipe_pos - input;
+        strncpy(left_cmd, input, left_len);
+        left_cmd[left_len] = '\0';
+        
+        // Remove trailing spaces from left command
+        while (left_len > 0 && left_cmd[left_len - 1] == ' ') {
+            left_cmd[--left_len] = '\0';
+        }
+        
+        // Extract right command (everything after the pipe)
+        const char* right_start = pipe_pos + 1;
+        while (*right_start == ' ') right_start++;
+        strcpy(right_cmd, right_start);
+        
+        // Remove trailing spaces from right command
+        int right_len = strlen(right_cmd);
+        while (right_len > 0 && right_cmd[right_len - 1] == ' ') {
+            right_cmd[--right_len] = '\0';
+        }
+        
+        // Execute left command and capture output
+        char buffer[1024];
+        execute_command_with_output(left_cmd, buffer, sizeof(buffer));
+        
+        // Execute right command with piped input
+        execute_command_with_input(right_cmd, buffer);
+        return;
+    }
+
     // Skip leading spaces
     while (*input == ' ') input++;
     if (*input == '\0') return;
@@ -340,9 +377,14 @@ void kernel_execute_command(const char* input) {
         terminal_writestring("\n");
     }
     else if (strcmp(cmd, "ls") == 0) {
+        const char* target_dir = args;
+        if (strlen(target_dir) == 0) {
+            target_dir = current_dir;
+        }
+        
         // Prefer tar archive listing when available
         if (tar_archive) {
-            tar_list_directory(tar_archive, current_dir);
+            tar_list_directory(tar_archive, target_dir);
             return;
         } else {
             // Fall back to in-memory directory system with pagination
@@ -357,20 +399,20 @@ void kernel_execute_command(const char* input) {
                 } \
             } while (0)
 
-            if (strcmp(current_dir, "/") == 0) {
+            if (strcmp(target_dir, "/") == 0) {
                 for (int i = 0; i < dir_count; i++) {
                     LS_PRINT(dirs[i]); LS_PRINT("/ ");
                 }
                 if (printed > 0) { terminal_writestring("\n"); }
-            } else if (strcmp(current_dir, "/bin") == 0) {
+            } else if (strcmp(target_dir, "/bin") == 0) {
                 LS_PRINT("hello  test  editor  calc\n");
-            } else if (strcmp(current_dir, "/home") == 0) {
+            } else if (strcmp(target_dir, "/home") == 0) {
                 for (int i = 0; i < home_dir_count; i++) {
                     LS_PRINT(home_dirs[i]); LS_PRINT("/ ");
                 }
                 if (printed > 0) { terminal_writestring("\n"); }
-            } else if (strncmp(current_dir, "/home/", 6) == 0) {
-                const char* dir = current_dir + 6;
+            } else if (strncmp(target_dir, "/home/", 6) == 0) {
+                const char* dir = target_dir + 6;
                 int dir_len = 0;
                 while (dir[dir_len] && dir[dir_len] != '/') dir_len++;
                 char dir_name[32];
@@ -977,6 +1019,8 @@ void kernel_execute_command(const char* input) {
         reboot();
     } else if (strcmp(cmd, "gui") == 0) {
         start_gui();
+    } else if (strcmp(cmd, "grep") == 0) {
+        grep(args);
     } else {
         if (is_file_in_path(cmd, pathbin)) {
             execute_binary(cmd);
@@ -985,5 +1029,361 @@ void kernel_execute_command(const char* input) {
             terminal_writestring(cmd);
             terminal_writestring("' not found.\n");
         }
+    }
+}
+
+// Simple grep implementation
+void grep(const char* args) {
+    if (strlen(args) == 0) {
+        terminal_writestring("grep: missing pattern\n");
+        return;
+    }
+    
+    // Extract pattern and filename
+    char pattern[256];
+    char filename[256];
+    
+    const char* p = args;
+    int j = 0;
+    while (*p && *p != ' ' && j < 255) {
+        pattern[j++] = *p++;
+    }
+    pattern[j] = '\0';
+    
+    while (*p == ' ') p++;
+    strcpy(filename, p);
+    
+    if (strlen(pattern) == 0 || strlen(filename) == 0) {
+        terminal_writestring("grep: usage: grep <pattern> <filename>\n");
+        return;
+    }
+    
+    // Search in tar archive if available
+    if (tar_archive) {
+        char tar_path[256];
+        if (filename[0] == '/') {
+            strcpy(tar_path, filename + 1);
+        } else if (strcmp(current_dir, "/") == 0) {
+            strcpy(tar_path, filename);
+        } else {
+            strcpy(tar_path, current_dir + 1);
+            if (tar_path[strlen(tar_path) - 1] != '/') {
+                strcat(tar_path, "/");
+            }
+            strcat(tar_path, filename);
+        }
+
+        void* data = tar_lookup(tar_archive, tar_path);
+        int size = tar_get_file_size(tar_archive, tar_path);
+        if (data && size >= 0) {
+            char* bytes = (char*)data;
+            int line_start = 0;
+            int found = 0;
+            
+            for (int i = 0; i <= size; i++) {
+                if (bytes[i] == '\n' || i == size) {
+                    // Check current line for pattern
+                    int line_len = i - line_start;
+                    if (line_len > 0) {
+                        char line[256];
+                        if (line_len >= 256) line_len = 255;
+                        strncpy(line, bytes + line_start, line_len);
+                        line[line_len] = '\0';
+                        
+                        if (strstr(line, pattern)) {
+                            terminal_writestring(line);
+                            terminal_putchar('\n');
+                            found = 1;
+                        }
+                    }
+                    line_start = i + 1;
+                }
+            }
+            
+            if (!found) {
+                terminal_writestring("No matches found\n");
+            }
+            return;
+        }
+    }
+    
+    // Fall back to in-memory file system
+    file_t* f = find_file(filename);
+    if (f) {
+        int line_start = 0;
+        int found = 0;
+        
+        for (int i = 0; i <= f->size; i++) {
+            if (f->content[i] == '\n' || i == f->size) {
+                // Check current line for pattern
+                int line_len = i - line_start;
+                if (line_len > 0) {
+                    char line[256];
+                    if (line_len >= 256) line_len = 255;
+                    strncpy(line, f->content + line_start, line_len);
+                    line[line_len] = '\0';
+                    
+                    if (strstr(line, pattern)) {
+                        terminal_writestring(line);
+                        terminal_putchar('\n');
+                        found = 1;
+                    }
+                }
+                line_start = i + 1;
+            }
+        }
+        
+        if (!found) {
+            terminal_writestring("No matches found\n");
+        }
+    } else {
+        terminal_writestring("grep: ");
+        terminal_writestring(filename);
+        terminal_writestring(": No such file\n");
+    }
+}
+
+// Function to execute a command and capture its output
+void execute_command_with_output(const char* command, char* output, int output_size) {
+    // For now, we'll implement a simple version that handles basic commands
+    // In a full implementation, this would capture the output of the command
+    
+    // Parse the command
+    char cmd[64];
+    int i = 0;
+    while (command[i] && command[i] != ' ' && i < 63) {
+        cmd[i] = command[i];
+        i++;
+    }
+    cmd[i] = '\0';
+    
+    const char* args = command + i;
+    while (*args == ' ') args++;
+    
+    // For grep, we'll implement the output capture
+    if (strcmp(cmd, "grep") == 0) {
+        // Simple grep implementation that captures output
+        char pattern[256];
+        char filename[256];
+        
+        // Extract pattern and filename
+        const char* p = args;
+        int j = 0;
+        while (*p && *p != ' ' && j < 255) {
+            pattern[j++] = *p++;
+        }
+        pattern[j] = '\0';
+        
+        while (*p == ' ') p++;
+        strcpy(filename, p);
+        
+        // Execute grep and capture output
+        grep_with_output(pattern, filename, output, output_size);
+    } else if (strcmp(cmd, "ls") == 0) {
+        // Capture ls output
+        const char* target_dir = args;
+        if (strlen(target_dir) == 0) {
+            target_dir = current_dir;
+        }
+        
+        // Prefer tar archive listing when available
+        if (tar_archive) {
+            // For now, just execute normally and let it print
+            kernel_execute_command(command);
+            strcpy(output, ""); // No actual capture yet
+        } else {
+            // Fall back to in-memory directory system
+            kernel_execute_command(command);
+            strcpy(output, ""); // No actual capture yet
+        }
+    } else {
+        // For other commands, just execute them normally
+        kernel_execute_command(command);
+        strcpy(output, ""); // No output captured for other commands in this simple implementation
+    }
+}
+
+// Function to execute a command with input from a buffer
+void execute_command_with_input(const char* command, const char* input) {
+    // Parse the command
+    char cmd[64];
+    int i = 0;
+    while (command[i] && command[i] != ' ' && i < 63) {
+        cmd[i] = command[i];
+        i++;
+    }
+    cmd[i] = '\0';
+    
+    const char* args = command + i;
+    while (*args == ' ') args++;
+    
+    // For grep, we'll implement input processing
+    if (strcmp(cmd, "grep") == 0) {
+        // Simple grep implementation that processes input from buffer
+        char pattern[256];
+        
+        // Extract pattern
+        const char* p = args;
+        int j = 0;
+        while (*p && *p != ' ' && j < 255) {
+            pattern[j++] = *p++;
+        }
+        pattern[j] = '\0';
+        
+        // Process input buffer line by line
+        grep_with_input(pattern, input);
+    } else {
+        // For other commands, just execute them normally
+        kernel_execute_command(command);
+    }
+}
+
+// Helper function for grep with output capture
+void grep_with_output(const char* pattern, const char* filename, char* output, int output_size) {
+    // Search in tar archive if available
+    if (tar_archive) {
+        char tar_path[256];
+        if (filename[0] == '/') {
+            strcpy(tar_path, filename + 1);
+        } else if (strcmp(current_dir, "/") == 0) {
+            strcpy(tar_path, filename);
+        } else {
+            strcpy(tar_path, current_dir + 1);
+            if (tar_path[strlen(tar_path) - 1] != '/') {
+                strcat(tar_path, "/");
+            }
+            strcat(tar_path, filename);
+        }
+
+        void* data = tar_lookup(tar_archive, tar_path);
+        int size = tar_get_file_size(tar_archive, tar_path);
+        if (data && size >= 0) {
+            char* bytes = (char*)data;
+            int line_start = 0;
+            int output_pos = 0;
+            int found = 0;
+            
+            for (int i = 0; i <= size; i++) {
+                if (bytes[i] == '\n' || i == size) {
+                    // Check current line for pattern
+                    int line_len = i - line_start;
+                    if (line_len > 0) {
+                        char line[256];
+                        if (line_len >= 256) line_len = 255;
+                        strncpy(line, bytes + line_start, line_len);
+                        line[line_len] = '\0';
+                        
+                        if (strstr(line, pattern)) {
+                            // Add line to output buffer
+                            if (output_pos + line_len + 1 < output_size - 1) {
+                                strcpy(output + output_pos, line);
+                                output_pos += line_len;
+                                output[output_pos++] = '\n';
+                                found = 1;
+                            }
+                        }
+                    }
+                    line_start = i + 1;
+                }
+            }
+            
+            if (!found) {
+                strcpy(output, "No matches found\n");
+            } else {
+                output[output_pos] = '\0';
+            }
+            return;
+        }
+    }
+    
+    // Fall back to in-memory file system
+    file_t* f = find_file(filename);
+    if (f) {
+        int line_start = 0;
+        int output_pos = 0;
+        int found = 0;
+        
+        for (int i = 0; i <= f->size; i++) {
+            if (f->content[i] == '\n' || i == f->size) {
+                // Check current line for pattern
+                int line_len = i - line_start;
+                if (line_len > 0) {
+                    char line[256];
+                    if (line_len >= 256) line_len = 255;
+                    strncpy(line, f->content + line_start, line_len);
+                    line[line_len] = '\0';
+                    
+                    if (strstr(line, pattern)) {
+                        // Add line to output buffer
+                        if (output_pos + line_len + 1 < output_size - 1) {
+                            strcpy(output + output_pos, line);
+                            output_pos += line_len;
+                            output[output_pos++] = '\n';
+                            found = 1;
+                        }
+                    }
+                }
+                line_start = i + 1;
+            }
+        }
+        
+        if (!found) {
+            strcpy(output, "No matches found\n");
+        } else {
+            output[output_pos] = '\0';
+        }
+    } else {
+        strcpy(output, "grep: file not found\n");
+    }
+}
+
+// Helper function for grep with input processing
+void grep_with_input(const char* pattern, const char* input) {
+    // Process input buffer line by line
+    if (!input || !pattern) {
+        terminal_writestring("grep: invalid input\n");
+        return;
+    }
+    
+    int line_start = 0;
+    int found = 0;
+    
+    for (int i = 0; input[i] != '\0'; i++) {
+        if (input[i] == '\n') {
+            // Check current line for pattern
+            int line_len = i - line_start;
+            if (line_len > 0) {
+                char line[256];
+                if (line_len >= 256) line_len = 255;
+                strncpy(line, input + line_start, line_len);
+                line[line_len] = '\0';
+                
+                if (strstr(line, pattern)) {
+                    terminal_writestring(line);
+                    terminal_putchar('\n');
+                    found = 1;
+                }
+            }
+            line_start = i + 1;
+        }
+    }
+    
+    // Check last line if it doesn't end with newline
+    int last_line_len = strlen(input) - line_start;
+    if (last_line_len > 0) {
+        char line[256];
+        if (last_line_len >= 256) last_line_len = 255;
+        strncpy(line, input + line_start, last_line_len);
+        line[last_line_len] = '\0';
+        
+        if (strstr(line, pattern)) {
+            terminal_writestring(line);
+            terminal_putchar('\n');
+            found = 1;
+        }
+    }
+    
+    if (!found) {
+        terminal_writestring("No matches found\n");
     }
 }
