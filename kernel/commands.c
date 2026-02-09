@@ -82,6 +82,50 @@ static int home_sub_count[10] = {0};
 char current_dir[256] = "/";
 static char* pathbin = "/bin";
 
+// Forward declarations for helpers used by command files.
+char get_char();
+void grep(const char* args);
+void execute_command_with_output(const char* command, char* output, int output_size);
+void execute_command_with_input(const char* command, const char* input);
+void grep_with_output(const char* pattern, const char* filename, char* output, int output_size);
+void grep_with_input(const char* pattern, const char* input);
+
+// Forward declarations for internal helpers used by command files.
+static file_t* find_file(const char* name);
+static file_t* create_file(const char* name);
+static void shutdown();
+static void reboot();
+
+// Command handlers split into separate files.
+#include "comand/help.c"
+#include "comand/cls.c"
+#include "comand/ver.c"
+#include "comand/pwd.c"
+#include "comand/ls.c"
+#include "comand/cd.c"
+#include "comand/cat.c"
+#include "comand/echo.c"
+#include "comand/uname.c"
+#include "comand/date.c"
+#include "comand/whoami.c"
+#include "comand/mkdir.c"
+#include "comand/touch.c"
+#include "comand/rm.c"
+#include "comand/cp.c"
+#include "comand/disks.c"
+#include "comand/read_sector.c"
+#include "comand/write_sector.c"
+#include "comand/mount.c"
+#include "comand/useradd.c"
+#include "comand/passwd.c"
+#include "comand/login.c"
+#include "comand/userdel.c"
+#include "comand/crypt.c"
+#include "comand/shutdown.c"
+#include "comand/reboot.c"
+#include "comand/gui.c"
+#include "comand/grep.c"
+
 void init_kernel_commands() {
     // If tar archive is available, get directories from it
     if (tar_archive) {
@@ -362,438 +406,50 @@ void kernel_execute_command(const char* input) {
     while (*args == ' ') args++;
 
     if (strcmp(cmd, "help") == 0) {
-        terminal_writestring("Lakos OS Commands: help, cls, ver, pwd, ls, cd, echo, uname, date, cat, mkdir, disks, read_sector, write_sector, mount, useradd, passwd, login, userdel, crypt, whoami, touch, rm, cp, shutdown, reboot, gui\nAvailable programs: hello, test, editor, calc\n");
+        cmd_help(args);
     }
     else if (strcmp(cmd, "cls") == 0) {
-        terminal_initialize();
+        cmd_cls(args);
     }
     else if (strcmp(cmd, "ver") == 0) {
-        terminal_writestring("lakKERNEL ");
-        terminal_writestring(KERNEL_VERSION);
-        terminal_writestring(" [Kernel Mode]\n");
+        cmd_ver(args);
     }
     else if (strcmp(cmd, "pwd") == 0) {
-        terminal_writestring(current_dir);
-        terminal_writestring("\n");
+        cmd_pwd(args);
     }
     else if (strcmp(cmd, "ls") == 0) {
-        const char* target_dir = args;
-        if (strlen(target_dir) == 0) {
-            target_dir = current_dir;
-        }
-        
-        // Prefer tar archive listing when available
-        if (tar_archive) {
-            tar_list_directory(tar_archive, target_dir);
-            return;
-        } else {
-            // Fall back to in-memory directory system with pagination
-            int printed = 0;
-            #define LS_PRINT(s) do { \
-                terminal_writestring(s); \
-                printed += strlen(s); \
-                if (printed >= FILE_SIZE_THRESHOLD) { \
-                    terminal_writestring("\npress any key"); \
-                    get_char(); \
-                    printed = 0; \
-                } \
-            } while (0)
-
-            if (strcmp(target_dir, "/") == 0) {
-                for (int i = 0; i < dir_count; i++) {
-                    LS_PRINT(dirs[i]); LS_PRINT("/ ");
-                }
-                if (printed > 0) { terminal_writestring("\n"); }
-            } else if (strcmp(target_dir, "/bin") == 0) {
-                LS_PRINT("hello  test  editor  calc\n");
-            } else if (strcmp(target_dir, "/home") == 0) {
-                for (int i = 0; i < home_dir_count; i++) {
-                    LS_PRINT(home_dirs[i]); LS_PRINT("/ ");
-                }
-                if (printed > 0) { terminal_writestring("\n"); }
-            } else if (strncmp(target_dir, "/home/", 6) == 0) {
-                const char* dir = target_dir + 6;
-                int dir_len = 0;
-                while (dir[dir_len] && dir[dir_len] != '/') dir_len++;
-                char dir_name[32];
-                if (dir_len >= 32) dir_len = 31;
-                for (int k = 0; k < dir_len; k++) dir_name[k] = dir[k];
-                dir_name[dir_len] = '\0';
-                for (int i = 0; i < home_dir_count; i++) {
-                    if (strcmp(home_dirs[i], dir_name) == 0) {
-                        for (int j = 0; j < home_sub_count[i]; j++) {
-                            LS_PRINT(home_subdirs[i][j]); LS_PRINT("/ ");
-                        }
-                        if (printed > 0) { terminal_writestring("\n"); }
-                        return;
-                    }
-                }
-                LS_PRINT(".\n");
-            } else {
-                LS_PRINT(".\n");
-            }
-            #undef LS_PRINT
-        }
+        cmd_ls(args);
     }
     else if (strcmp(cmd, "cd") == 0) {
-        const char* dir = args;
-        if (strlen(dir) == 0) {
-            strcpy(current_dir, "/home");
-        } else if (strcmp(dir, "/") == 0) {
-            strcpy(current_dir, "/");
-        } else if (strcmp(dir, "bin") == 0) {
-            strcpy(current_dir, "/bin");
-        } else if (strcmp(dir, "home") == 0) {
-            strcpy(current_dir, "/home");
-        } else if (strcmp(dir, "..") == 0) {
-            if (strcmp(current_dir, "/") == 0) {
-                // stay
-            } else if (strcmp(current_dir, "/home") == 0 || strcmp(current_dir, "/bin") == 0) {
-                strcpy(current_dir, "/");
-            } else if (strncmp(current_dir, "/home/", 6) == 0) {
-                char* last_slash = current_dir + strlen(current_dir);
-                while (last_slash > current_dir && *last_slash != '/') last_slash--;
-                if (last_slash > current_dir + 5) {
-                    *last_slash = '\0';
-                } else {
-                    strcpy(current_dir, "/home");
-                }
-            } else {
-                strcpy(current_dir, "/");
-            }
-        } else {
-            // handle subdirectory navigation within /home
-            if (strncmp(current_dir, "/home/", 6) == 0) {
-                // find parent directory name
-                const char* cur = current_dir + 6;
-                int len = 0;
-                while (cur[len] && cur[len] != '/') len++;
-                char parent[32];
-                if (len >= 32) len = 31;
-                strncpy(parent, cur, len);
-                parent[len] = '\0';
-                int parent_index = -1;
-                for (int i = 0; i < home_dir_count; i++) {
-                    if (strcmp(home_dirs[i], parent) == 0) {
-                        parent_index = i;
-                        break;
-                    }
-                }
-                if (parent_index >= 0) {
-                    int found = 0;
-                    for (int j = 0; j < home_sub_count[parent_index]; j++) {
-                        if (strcmp(home_subdirs[parent_index][j], dir) == 0) {
-                            // build new path
-                            char new_path[256];
-                            strcpy(new_path, current_dir);
-                            if (new_path[strlen(new_path)-1] != '/') {
-                                strcat(new_path, "/");
-                            }
-                            strcat(new_path, dir);
-                            strcpy(current_dir, new_path);
-                            found = 1;
-                            break;
-                        }
-                    }
-                    if (!found) {
-                        terminal_writestring("cd: ");
-                        terminal_writestring(dir);
-                        terminal_writestring(": No such file or directory\n");
-                    }
-                } else {
-                    terminal_writestring("cd: parent directory not found\n");
-                }
-            } else {
-                // simple handling for other directories
-                if (dir[0] == '/') {
-                    strcpy(current_dir, dir);
-                } else {
-                    if (strcmp(current_dir, "/") != 0) {
-                        strcat(current_dir, "/");
-                    }
-                    strcat(current_dir, dir);
-                }
-            }
-        }
+        cmd_cd(args);
     }
-    
     else if (strcmp(cmd, "cat") == 0) {
-        const char* filename = args;
-        if (strlen(filename) == 0) {
-            terminal_writestring("cat: missing file name\n");
-        } else {
-            int handled = 0;
-            if (tar_archive) {
-                char tar_path[256];
-                if (filename[0] == '/') {
-                    strcpy(tar_path, filename + 1);
-                } else if (strcmp(current_dir, "/") == 0) {
-                    strcpy(tar_path, filename);
-                } else {
-                    strcpy(tar_path, current_dir + 1);
-                    if (tar_path[strlen(tar_path) - 1] != '/') {
-                        strcat(tar_path, "/");
-                    }
-                    strcat(tar_path, filename);
-                }
-
-                void* data = tar_lookup(tar_archive, tar_path);
-                int size = tar_get_file_size(tar_archive, tar_path);
-                if (data && size >= 0) {
-                    char* bytes = (char*)data;
-                    int offset = 0;
-                    while (offset < size) {
-                        int chunk = (size - offset > FILE_SIZE_THRESHOLD) ? FILE_SIZE_THRESHOLD : (size - offset);
-                        for (int i = 0; i < chunk; i++) {
-                            terminal_putchar(bytes[offset + i]);
-                        }
-                        offset += chunk;
-                        if (offset < size) {
-                            terminal_writestring("\npress any key");
-                            get_char();
-                        }
-                    }
-                    terminal_putchar('\n');
-                    handled = 1;
-                }
-            }
-
-            if (!handled) {
-                file_t* f = find_file(filename);
-                if (f) {
-                    int offset = 0;
-                    while (offset < f->size) {
-                        int chunk = (f->size - offset > FILE_SIZE_THRESHOLD) ? FILE_SIZE_THRESHOLD : (f->size - offset);
-                        for (int i = 0; i < chunk; i++) {
-                            terminal_putchar(f->content[offset + i]);
-                        }
-                        offset += chunk;
-                        if (offset < f->size) {
-                            terminal_writestring("\npress any key");
-                            get_char();
-                        }
-                    }
-                    terminal_putchar('\n');
-                } else {
-                    terminal_writestring("cat: ");
-                    terminal_writestring(filename);
-                    terminal_writestring(": No such file\n");
-                }
-            }
-        }
+        cmd_cat(args);
     }
-                
-
     else if (strcmp(cmd, "echo") == 0) {
-        terminal_writestring(args);
-        terminal_writestring("\n");
+        cmd_echo(args);
     }
     else if (strcmp(cmd, "uname") == 0) {
-        terminal_writestring("Lakos\n");
+        cmd_uname(args);
     }
     else if (strcmp(cmd, "date") == 0) {
-        terminal_writestring("2026-01-10\n");
+        cmd_date(args);
     }
     else if (strcmp(cmd, "whoami") == 0) {
-        terminal_writestring(current_user);
-        terminal_writestring("\n");
+        cmd_whoami(args);
     }
     // duplicate cat implementation removed
     else if (strcmp(cmd, "mkdir") == 0) {
-        const char* dirname = args;
-        if (strlen(dirname) == 0) {
-            terminal_writestring("mkdir: missing directory name\n");
-        } else {
-            if (strcmp(current_dir, "/home") == 0) {
-                if (home_dir_count >= 10) {
-                    terminal_writestring("mkdir: too many directories\n");
-                } else {
-                    int len = strlen(dirname);
-                    if (len >= 32) {
-                        terminal_writestring("mkdir: directory name too long\n");
-                    } else {
-                        strcpy(home_dirs[home_dir_count++], dirname);
-                        terminal_writestring("mkdir: created directory '");
-                        terminal_writestring(dirname);
-                        terminal_writestring("'\n");
-                    }
-                }
-            } else if (strncmp(current_dir, "/home/", 6) == 0) {
-                const char* parent = current_dir + 6;
-                int parent_len = 0;
-                while (parent[parent_len] && parent[parent_len] != '/') parent_len++;
-                char parent_name[32];
-                if (parent_len >= 32) parent_len = 31;
-                for (int k = 0; k < parent_len; k++) parent_name[k] = parent[k];
-                parent_name[parent_len] = '\0';
-                for (int i = 0; i < home_dir_count; i++) {
-                    if (strcmp(home_dirs[i], parent_name) == 0) {
-                        if (home_sub_count[i] >= 10) {
-                            terminal_writestring("mkdir: too many subdirectories\n");
-                        } else {
-                            int len = strlen(dirname);
-                            if (len >= 32) {
-                                terminal_writestring("mkdir: directory name too long\n");
-                            } else {
-                                strcpy(home_subdirs[i][home_sub_count[i]++], dirname);
-                                terminal_writestring("mkdir: created directory '");
-                                terminal_writestring(dirname);
-                                terminal_writestring("'\n");
-                            }
-                        }
-                        return;
-                    }
-                }
-                terminal_writestring("mkdir: parent directory not found\n");
-            } else {
-                terminal_writestring("mkdir: can only create directories in /home\n");
-            }
-        }
+        cmd_mkdir(args);
     }
     else if (strcmp(cmd, "touch") == 0) {
-        const char* dirname = args;
-        if (strlen(dirname) == 0) {
-            terminal_writestring("touch: missing directory name\n");
-        } else {
-            if (strcmp(current_dir, "/home") == 0) {
-                // Check if directory already exists
-                int exists = 0;
-                for (int i = 0; i < home_dir_count; i++) {
-                    if (strcmp(home_dirs[i], dirname) == 0) {
-                        exists = 1;
-                        break;
-                    }
-                }
-                if (!exists) {
-                    if (home_dir_count >= 10) {
-                        terminal_writestring("touch: too many directories\n");
-                    } else {
-                        int len = strlen(dirname);
-                        if (len >= 32) {
-                            terminal_writestring("touch: directory name too long\n");
-                        } else {
-                            strcpy(home_dirs[home_dir_count++], dirname);
-                            terminal_writestring("touch: created directory '");
-                            terminal_writestring(dirname);
-                            terminal_writestring("'\n");
-                        }
-                    }
-                } else {
-                    terminal_writestring("touch: directory '");
-                    terminal_writestring(dirname);
-                    terminal_writestring("' already exists\n");
-                }
-            } else if (strncmp(current_dir, "/home/", 6) == 0) {
-                // Create subdirectory
-                const char* parent = current_dir + 6;
-                int parent_len = 0;
-                while (parent[parent_len] && parent[parent_len] != '/') parent_len++;
-                char parent_name[32];
-                if (parent_len >= 32) parent_len = 31;
-                for (int k = 0; k < parent_len; k++) parent_name[k] = parent[k];
-                parent_name[parent_len] = '\0';
-                
-                int parent_index = -1;
-                for (int i = 0; i < home_dir_count; i++) {
-                    if (strcmp(home_dirs[i], parent_name) == 0) {
-                        parent_index = i;
-                        break;
-                    }
-                }
-                
-                if (parent_index >= 0) {
-                    // Check if subdirectory already exists
-                    int exists = 0;
-                    for (int j = 0; j < home_sub_count[parent_index]; j++) {
-                        if (strcmp(home_subdirs[parent_index][j], dirname) == 0) {
-                            exists = 1;
-                            break;
-                        }
-                    }
-                    
-                    if (!exists) {
-                        if (home_sub_count[parent_index] >= 10) {
-                            terminal_writestring("touch: too many subdirectories\n");
-                        } else {
-                            int len = strlen(dirname);
-                            if (len >= 32) {
-                                terminal_writestring("touch: directory name too long\n");
-                            } else {
-                                strcpy(home_subdirs[parent_index][home_sub_count[parent_index]++], dirname);
-                                terminal_writestring("touch: created directory '");
-                                terminal_writestring(dirname);
-                                terminal_writestring("'\n");
-                            }
-                        }
-                    } else {
-                        terminal_writestring("touch: directory '");
-                        terminal_writestring(dirname);
-                        terminal_writestring("' already exists\n");
-                    }
-                } else {
-                    terminal_writestring("touch: parent directory not found\n");
-                }
-            } else {
-                terminal_writestring("touch: can only create directories in /home\n");
-            }
-        }
+        cmd_touch(args);
     }
     else if (strcmp(cmd, "rm") == 0) {
-        const char* filename = args;
-        if (strlen(filename) == 0) {
-            terminal_writestring("rm: missing file name\n");
-        } else {
-            file_t* f = find_file(filename);
-            if (f) {
-                strcpy(f->name, "");
-                f->size = 0;
-                terminal_writestring("rm: removed '");
-                terminal_writestring(filename);
-                terminal_writestring("'\n");
-            } else {
-                terminal_writestring("rm: ");
-                terminal_writestring(filename);
-                terminal_writestring(": No such file\n");
-            }
-        }
+        cmd_rm(args);
     }
     else if (strcmp(cmd, "cp") == 0) {
-        const char* p = args;
-        char src_name[32];
-        int j = 0;
-        while (p[j] && p[j] != ' ' && j < 31) {
-            src_name[j] = p[j];
-            j++;
-        }
-        src_name[j] = '\0';
-        
-        const char* dest = p + j;
-        while (*dest == ' ') dest++;
-        
-        if (strlen(src_name) > 0 && strlen(dest) > 0) {
-            file_t* s = find_file(src_name);
-            if (s) {
-                file_t* d = find_file(dest);
-                if (!d) d = create_file(dest);
-                if (d) {
-                    strcpy(d->content, s->content);
-                    d->size = s->size;
-                    terminal_writestring("cp: copied '");
-                    terminal_writestring(src_name);
-                    terminal_writestring("' to '");
-                    terminal_writestring(dest);
-                    terminal_writestring("'\n");
-                } else {
-                    terminal_writestring("cp: failed to create destination\n");
-                }
-            } else {
-                terminal_writestring("cp: ");
-                terminal_writestring(src_name);
-                terminal_writestring(": No such file\n");
-            }
-        } else {
-            terminal_writestring("Usage: cp <source> <dest>\n");
-        }
+        cmd_cp(args);
     }
     else if (strstr(input, " >> ")) {
         char temp[256];
@@ -816,211 +472,31 @@ void kernel_execute_command(const char* input) {
             }
         }
     } else if (strcmp(cmd, "disks") == 0) {
-        int count = ata_detect_disks();
-        terminal_writestring("Detected disks: ");
-        for (int i = 0; i < count; i++) {
-            terminal_writestring("/dev/hd");
-            terminal_putchar('a' + i);
-            terminal_writestring("1 ");
-        }
-        terminal_writestring("\n");
+        cmd_disks(args);
     } else if (strcmp(cmd, "read_sector") == 0) {
-        const char* p = args;
-        int drive = atoi(p);
-        while (*p && *p != ' ') p++;
-        if (*p == ' ') p++;
-        int lba = atoi(p);
-        if (drive >= 0 && lba >= 0) {
-            uint16_t buffer[256];
-            ata_read_sector(drive, lba, buffer);
-            terminal_writestring("Sector data (first 16 words in hex):\n");
-            for (int i = 0; i < 16; i++) {
-                char hex[10];
-                itoa(buffer[i], hex);
-                terminal_writestring(hex);
-                terminal_writestring(" ");
-            }
-            terminal_writestring("\n");
-        } else {
-            terminal_writestring("Usage: read_sector <drive> <lba>\n");
-        }
+        cmd_read_sector(args);
     } else if (strcmp(cmd, "write_sector") == 0) {
-        const char* p = args;
-        int drive = atoi(p);
-        while (*p && *p != ' ') p++;
-        if (*p == ' ') p++;
-        int lba = atoi(p);
-        if (drive >= 0 && lba >= 0) {
-            uint16_t buffer[256];
-            memset(buffer, 0, 512);
-            buffer[0] = 0x4141; // 'AA'
-            ata_write_sector(drive, lba, buffer);
-            terminal_writestring("Sector written with test data\n");
-        } else {
-            terminal_writestring("Usage: write_sector <drive> <lba>\n");
-        }
+        cmd_write_sector(args);
     } else if (strcmp(cmd, "mount") == 0) {
-        if (strlen(args) == 0) {
-            terminal_writestring("mount: missing arguments\nUsage: mount <device> <path>\n");
-        } else {
-            terminal_writestring("Mounted ");
-            terminal_writestring(args);
-            terminal_writestring("\n");
-        }
+        cmd_mount(args);
     } else if (strcmp(cmd, "useradd") == 0) {
-        if (get_current_uid() != 0) {
-            terminal_writestring("Permission denied\n");
-            return;
-        }
-        char username[32], password[32];
-        char* space = strstr(args, " ");
-        if (space) {
-            int len = space - args;
-            if (len >= 32) len = 31;
-            for (int i = 0; i < len; i++) username[i] = args[i];
-            username[len] = '\0';
-            const char* pass = space + 1;
-            int passlen = strlen(pass);
-            if (passlen >= 32) passlen = 31;
-            for (int i = 0; i < passlen; i++) password[i] = pass[i];
-            password[passlen] = '\0';
-            if (add_user(username, password)) {
-                terminal_writestring("User added: ");
-                terminal_writestring(username);
-                terminal_writestring("\n");
-                save_users();
-            } else {
-                terminal_writestring("Failed to add user\n");
-            }
-        } else {
-            terminal_writestring("Usage: useradd <username> <password>\n");
-        }
-    } else if (strcmp(cmd, "login") == 0 && strlen(args) == 0) {
-        terminal_writestring("Usage: login <username> <password>\n");
-    } else if (strcmp(cmd, "passwd") == 0) {
-        char username[32], newpass[32];
-        char* space = strstr(args, " ");
-        if (space) {
-            int len = space - args;
-            if (len >= 32) len = 31;
-            for (int i = 0; i < len; i++) username[i] = args[i];
-            username[len] = '\0';
-            const char* pass = space + 1;
-            int passlen = strlen(pass);
-            if (passlen >= 32) passlen = 31;
-            for (int i = 0; i < passlen; i++) newpass[i] = pass[i];
-            newpass[passlen] = '\0';
-            int found = 0;
-            for (int i = 0; i < user_count; i++) {
-                if (strcmp(users[i].username, username) == 0) {
-                    strcpy(users[i].password, newpass);
-                    terminal_writestring("Password changed for ");
-                    terminal_writestring(username);
-                    terminal_writestring("\n");
-                    found = 1;
-                    break;
-                }
-            }
-            if (found) save_users();
-            if (!found) {
-                terminal_writestring("User not found\n");
-            }
-        } else {
-            terminal_writestring("Usage: passwd <username> <newpassword>\n");
-        }
+        cmd_useradd(args);
     } else if (strcmp(cmd, "login") == 0) {
-        char username[32], password[32];
-        char* space = strstr(args, " ");
-        if (space) {
-            int len = space - args;
-            if (len >= 32) len = 31;
-            for (int i = 0; i < len; i++) username[i] = args[i];
-            username[len] = '\0';
-            const char* pass = space + 1;
-            int passlen = strlen(pass);
-            if (passlen >= 32) passlen = 31;
-            for (int i = 0; i < passlen; i++) password[i] = pass[i];
-            password[passlen] = '\0';
-            
-            // Trim whitespace from username before authentication
-            char trimmed_username[32];
-            int src = 0, dst = 0;
-            while (username[src] == ' ' || username[src] == '\t') src++; // skip leading whitespace
-            while (username[src] != '\0') {
-                if (username[src] != ' ' && username[src] != '\t') {
-                    trimmed_username[dst++] = username[src];
-                }
-                src++;
-            }
-            trimmed_username[dst] = '\0';
-            
-            if (authenticate_user(trimmed_username, password)) {
-                terminal_writestring("Logged in as ");
-                terminal_writestring(current_user);
-                terminal_writestring("\n");
-            } else {
-                terminal_writestring("Invalid username or password\n");
-            }
-        } else {
-            terminal_writestring("Usage: login <username> <password>\n");
-        }
+        cmd_login(args);
+    } else if (strcmp(cmd, "passwd") == 0) {
+        cmd_passwd(args);
     } else if (strcmp(cmd, "userdel") == 0) {
-        if (get_current_uid() != 0) {
-            terminal_writestring("Permission denied\n");
-            return;
-        }
-        if (strlen(args) > 0) {
-            if (delete_user(args)) {
-                terminal_writestring("User deleted: ");
-                terminal_writestring(args);
-                terminal_writestring("\n");
-                save_users();
-            } else {
-                terminal_writestring("Failed to delete user\n");
-            }
-        } else {
-            terminal_writestring("Usage: userdel <username>\n");
-        }
+        cmd_userdel(args);
     } else if (strcmp(cmd, "crypt") == 0) {
-        if (args[0] == '-' && (args[1] == 'e' || args[1] == 'd') && args[2] == ' ') {
-            char mode = args[1];
-            const char* p = args + 3;
-            char key[32];
-            int k = 0;
-            while (*p && *p != ' ' && k < 31) {
-                key[k++] = *p++;
-            }
-            key[k] = '\0';
-            if (*p == ' ') p++;
-            char text[MAX_PASS_LEN];
-            int t = 0;
-            while (*p && t < MAX_PASS_LEN - 1) {
-                text[t++] = *p++;
-            }
-            text[t] = '\0';
-            char result[MAX_PASS_LEN];
-            if (mode == 'e') {
-                encrypt_password(text, key, result);
-                terminal_writestring("Encrypted: ");
-                terminal_writestring(result);
-                terminal_writestring("\n");
-            } else if (mode == 'd') {
-                decrypt_password(text, key, result);
-                terminal_writestring("Decrypted: ");
-                terminal_writestring(result);
-                terminal_writestring("\n");
-            }
-        } else {
-            terminal_writestring("Usage: crypt -e <key> <password> or crypt -d <key> <encrypted>\n");
-        }
+        cmd_crypt(args);
     } else if (strcmp(cmd, "shutdown") == 0) {
-        shutdown();
+        cmd_shutdown(args);
     } else if (strcmp(cmd, "reboot") == 0) {
-        reboot();
+        cmd_reboot(args);
     } else if (strcmp(cmd, "gui") == 0) {
-        start_gui();
+        cmd_gui(args);
     } else if (strcmp(cmd, "grep") == 0) {
-        grep(args);
+        cmd_grep(args);
     } else {
         if (is_file_in_path(cmd, pathbin)) {
             execute_binary(cmd);
