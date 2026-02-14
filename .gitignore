@@ -56,4 +56,9 @@ dkms.conf
 .bin
 .iso
 .img
-.ld
+modules.tar
+act_runner-0.2.13-linux-amd64
+.runner
+isodir/
+lakos.iso
+lakos.bin
