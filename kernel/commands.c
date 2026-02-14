@@ -405,8 +405,21 @@ void kernel_execute_command(const char* input) {
     const char* args = input + i;
     while (*args == ' ') args++;
 
+    if (strcmp(cmd, "--help") == 0 || strcmp(cmd, "-h") == 0) {
+        cmd_help("");
+        return;
+    }
+
+    if (strcmp(args, "--help") == 0 || strcmp(args, "-h") == 0) {
+        cmd_man(cmd);
+        return;
+    }
+
     if (strcmp(cmd, "help") == 0) {
         cmd_help(args);
+    }
+    else if (strcmp(cmd, "man") == 0) {
+        cmd_man(args);
     }
     else if (strcmp(cmd, "cls") == 0) {
         cmd_cls(args);

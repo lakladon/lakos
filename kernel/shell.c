@@ -93,12 +93,12 @@ static int history_index = 0;
 
 // Command completion
 static const char* available_commands[] = {
-    "help", "cls", "ver", "pwd", "ls", "cd", "echo", "uname", "date", 
+    "help", "man", "cls", "ver", "pwd", "ls", "cd", "echo", "uname", "date", 
     "cat", "mkdir", "disks", "read_sector", "write_sector", "mount",
     "useradd", "passwd", "login", "userdel", "crypt", "whoami", 
     "touch", "rm", "cp", "shutdown", "reboot", "gui", "hello", "test", "editor", "calc"
 };
-static int commands_count = 32;
+static int commands_count = 33;
 
 // Arrow key scancodes
 #define KEY_UP 72
