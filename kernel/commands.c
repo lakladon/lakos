@@ -9,6 +9,8 @@
 extern void terminal_writestring(const char* s);
 extern void terminal_putchar(char c);
 extern void terminal_initialize();
+extern void terminal_capture_begin(char* buffer, int buffer_size, int echo_to_screen);
+extern void terminal_capture_end();
 extern void* tar_archive;
 extern void* tar_lookup(void* archive, const char* filename);
 extern int tar_check_path_exists(void* archive, const char* path);
@@ -634,61 +636,21 @@ void grep(const char* args) {
 
 // Function to execute a command and capture its output
 void execute_command_with_output(const char* command, char* output, int output_size) {
-    // For now, we'll implement a simple version that handles basic commands
-    // In a full implementation, this would capture the output of the command
-    
-    // Parse the command
-    char cmd[64];
-    int i = 0;
-    while (command[i] && command[i] != ' ' && i < 63) {
-        cmd[i] = command[i];
-        i++;
+    if (!output || output_size <= 0) {
+        return;
     }
-    cmd[i] = '\0';
-    
-    const char* args = command + i;
-    while (*args == ' ') args++;
-    
-    // For grep, we'll implement the output capture
-    if (strcmp(cmd, "grep") == 0) {
-        // Simple grep implementation that captures output
-        char pattern[256];
-        char filename[256];
-        
-        // Extract pattern and filename
-        const char* p = args;
-        int j = 0;
-        while (*p && *p != ' ' && j < 255) {
-            pattern[j++] = *p++;
-        }
-        pattern[j] = '\0';
-        
-        while (*p == ' ') p++;
-        strcpy(filename, p);
-        
-        // Execute grep and capture output
-        grep_with_output(pattern, filename, output, output_size);
-    } else if (strcmp(cmd, "ls") == 0) {
-        // Capture ls output
-        const char* target_dir = args;
-        if (strlen(target_dir) == 0) {
-            target_dir = current_dir;
-        }
-        
-        // Prefer tar archive listing when available
-        if (tar_archive) {
-            // For now, just execute normally and let it print
-            kernel_execute_command(command);
-            strcpy(output, ""); // No actual capture yet
-        } else {
-            // Fall back to in-memory directory system
-            kernel_execute_command(command);
-            strcpy(output, ""); // No actual capture yet
-        }
-    } else {
-        // For other commands, just execute them normally
-        kernel_execute_command(command);
-        strcpy(output, ""); // No output captured for other commands in this simple implementation
+
+    output[0] = '\0';
+
+    // Generic capture for any command output.
+    terminal_capture_begin(output, output_size, 0);
+    kernel_execute_command(command);
+    terminal_capture_end();
+
+    // Normalize trailing newlines for piped input consumer.
+    int len = strlen(output);
+    while (len > 0 && (output[len - 1] == '\n' || output[len - 1] == '\r')) {
+        output[--len] = '\0';
     }
 }
 
