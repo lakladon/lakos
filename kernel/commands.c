@@ -9,8 +9,6 @@
 extern void terminal_writestring(const char* s);
 extern void terminal_putchar(char c);
 extern void terminal_initialize();
-extern void terminal_capture_begin(char* buffer, int buffer_size, int echo_to_screen);
-extern void terminal_capture_end();
 extern void* tar_archive;
 extern void* tar_lookup(void* archive, const char* filename);
 extern int tar_check_path_exists(void* archive, const char* path);
@@ -634,6 +632,19 @@ void grep(const char* args) {
     }
 }
 
+static void append_output(char* output, int output_size, const char* text) {
+    if (!output || output_size <= 0 || !text) return;
+    int len = strlen(output);
+    int add = strlen(text);
+    if (len >= output_size - 1) return;
+    if (len + add >= output_size) {
+        add = output_size - len - 1;
+    }
+    if (add > 0) {
+        strncat(output, text, add);
+    }
+}
+
 // Function to execute a command and capture its output
 void execute_command_with_output(const char* command, char* output, int output_size) {
     if (!output || output_size <= 0) {
@@ -642,12 +653,55 @@ void execute_command_with_output(const char* command, char* output, int output_s
 
     output[0] = '\0';
 
-    // Generic capture for any command output.
-    terminal_capture_begin(output, output_size, 0);
-    kernel_execute_command(command);
-    terminal_capture_end();
+    // Parse command and args.
+    char cmd[64];
+    int i = 0;
+    while (command[i] && command[i] != ' ' && i < 63) {
+        cmd[i] = command[i];
+        i++;
+    }
+    cmd[i] = '\0';
 
-    // Normalize trailing newlines for piped input consumer.
+    const char* args = command + i;
+    while (*args == ' ') args++;
+
+    // Common text-producing commands for pipes.
+    if (strcmp(cmd, "pwd") == 0) {
+        append_output(output, output_size, current_dir);
+        append_output(output, output_size, "\n");
+    } else if (strcmp(cmd, "whoami") == 0) {
+        append_output(output, output_size, current_user);
+        append_output(output, output_size, "\n");
+    } else if (strcmp(cmd, "ver") == 0) {
+        append_output(output, output_size, "lakKERNEL ");
+        append_output(output, output_size, KERNEL_VERSION);
+        append_output(output, output_size, " [Kernel Mode]\n");
+    } else if (strcmp(cmd, "uname") == 0) {
+        append_output(output, output_size, "Lakos\n");
+    } else if (strcmp(cmd, "date") == 0) {
+        append_output(output, output_size, "2026-01-10\n");
+    } else if (strcmp(cmd, "echo") == 0) {
+        append_output(output, output_size, args);
+        append_output(output, output_size, "\n");
+    } else if (strcmp(cmd, "grep") == 0) {
+        char pattern[256];
+        char filename[256];
+
+        const char* p = args;
+        int j = 0;
+        while (*p && *p != ' ' && j < 255) {
+            pattern[j++] = *p++;
+        }
+        pattern[j] = '\0';
+        while (*p == ' ') p++;
+        strcpy(filename, p);
+        grep_with_output(pattern, filename, output, output_size);
+    } else {
+        // Unknown command capture is not supported yet; keep empty.
+        output[0] = '\0';
+    }
+
+    // Normalize trailing newlines for piped consumer.
     int len = strlen(output);
     while (len > 0 && (output[len - 1] == '\n' || output[len - 1] == '\r')) {
         output[--len] = '\0';

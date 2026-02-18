@@ -30,13 +30,6 @@ int term_col = 0;
 int term_row = 0;
 uint8_t current_attr = 0x0F; // white on black
 
-// Terminal output capture (used by pipe mechanism)
-static int capture_enabled = 0;
-static int capture_echo_to_screen = 0;
-static char* capture_buffer = 0;
-static int capture_buffer_size = 0;
-static int capture_pos = 0;
-
 void update_cursor(int x, int y) {
     uint16_t pos = y * VGA_WIDTH + x;
     outb(0x3D4, 0x0F);
@@ -55,38 +48,7 @@ void terminal_initialize() {
     // Set cursor position (optional, but for completeness)
     // update_cursor(0, 0);
 }
-
-void terminal_capture_begin(char* buffer, int buffer_size, int echo_to_screen) {
-    capture_enabled = 1;
-    capture_echo_to_screen = echo_to_screen;
-    capture_buffer = buffer;
-    capture_buffer_size = buffer_size;
-    capture_pos = 0;
-
-    if (capture_buffer && capture_buffer_size > 0) {
-        capture_buffer[0] = '\0';
-    }
-}
-
-void terminal_capture_end() {
-    if (capture_buffer && capture_buffer_size > 0) {
-        if (capture_pos >= capture_buffer_size) {
-            capture_pos = capture_buffer_size - 1;
-        }
-        if (capture_pos < 0) {
-            capture_pos = 0;
-        }
-        capture_buffer[capture_pos] = '\0';
-    }
-
-    capture_enabled = 0;
-    capture_echo_to_screen = 0;
-    capture_buffer = 0;
-    capture_buffer_size = 0;
-    capture_pos = 0;
-}
-
-static void terminal_putchar_raw(char c) {
+void terminal_putchar(char c) {
     if (c == '\n') {
         term_col = 0;
         term_row++;
@@ -118,21 +80,6 @@ static void terminal_putchar_raw(char c) {
     }
 
     // update_cursor(term_col, term_row);
-}
-
-void terminal_putchar(char c) {
-    if (capture_enabled && capture_buffer && capture_buffer_size > 0) {
-        if (capture_pos < capture_buffer_size - 1) {
-            capture_buffer[capture_pos++] = c;
-            capture_buffer[capture_pos] = '\0';
-        }
-
-        if (!capture_echo_to_screen) {
-            return;
-        }
-    }
-
-    terminal_putchar_raw(c);
 }
 
 

@@ -44,12 +44,13 @@ USER_LDFLAGS = -m elf_i386 -e main -Ttext 0x200000 --unresolved-symbols=ignore-a
 
 USER_BIN = rootfs/bin/calc
 
-all: lakos.bin
+# By default build full bootable artifact set (kernel + modules + ISO)
+all: iso
 
 lakos.bin: $(OBJ)
 	$(LD) $(LDFLAGS) -o $@ $(OBJ)
 
-.PHONY: modules.tar user_programs
+.PHONY: all iso run modules.tar user_programs clean
 modules.tar: user_programs
 	rm -f modules.tar
 	cd rootfs && find . -type d ! -path . | tar --no-recursion -cf ../$@ --transform 's|^\./||' -T -
@@ -72,6 +73,9 @@ iso: lakos.bin modules.tar
 	echo '  module /boot/modules.tar' >> isodir/boot/grub/grub.cfg
 	echo '}' >> isodir/boot/grub/grub.cfg
 	grub-mkrescue -o lakos.iso isodir
+
+run: iso
+	qemu-system-i386 -cdrom lakos.iso -boot d -m 512M
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
