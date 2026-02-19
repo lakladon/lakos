@@ -28,11 +28,11 @@ sudo apt install gcc gcc-multilib nasm
 #### Инструменты для создания ISO
 ```bash
 # Ubuntu/Debian
-sudo apt install xorriso grub-pc-bin
+sudo apt install xorriso limine
 
 # macOS
 brew install xorriso
-# GRUB можно установить через brew или использовать другие средства
+# Limine можно установить через пакетный менеджер или собрать из исходников
 ```
 
 #### Эмуляторы (для тестирования)
@@ -141,15 +141,28 @@ rootfs/
 **Команды:**
 ```bash
 # Создание временной директории
-mkdir -p iso/boot/grub
+mkdir -p isodir/boot/limine isodir/EFI/BOOT
 
 # Копирование файлов
-cp lakos.bin iso/boot/
-cp modules.tar iso/boot/
-cp grub.cfg iso/boot/grub/
+cp lakos.bin isodir/boot/
+cp modules.tar isodir/boot/
+cp boot/limine.conf isodir/
+cp /usr/share/limine/limine-bios-cd.bin isodir/boot/limine/
+cp /usr/share/limine/limine-uefi-cd.bin isodir/boot/limine/
+cp /usr/share/limine/BOOTX64.EFI isodir/EFI/BOOT/BOOTX64.EFI
 
 # Создание ISO
-grub-mkrescue -o lakos.iso iso/ --xorriso xorriso
+xorriso -as mkisofs \
+  -b boot/limine/limine-bios-cd.bin \
+  -no-emul-boot \
+  -boot-load-size 4 \
+  -boot-info-table \
+  --efi-boot boot/limine/limine-uefi-cd.bin \
+  -efi-boot-part \
+  --efi-boot-image \
+  --protective-msdos-label \
+  isodir -o lakos.iso
+limine bios-install lakos.iso
 ```
 
 **Структура ISO:**
@@ -158,8 +171,13 @@ iso/
 ├── boot/
 │   ├── lakos.bin      # Ядро
 │   ├── modules.tar    # RootFS
-│   └── grub/
-│       └── grub.cfg   # Конфигурация GRUB
+│   └── limine/
+│       ├── limine-bios-cd.bin
+│       └── limine-uefi-cd.bin
+├── EFI/
+│   └── BOOT/
+│       └── BOOTX64.EFI
+└── limine.conf        # Конфигурация Limine
 └── README             # Документация
 ```
 
@@ -239,14 +257,14 @@ sudo apt install nasm
 brew install nasm
 ```
 
-#### Проблема 3: "grub-mkrescue: command not found"
+#### Проблема 3: "limine: command not found"
 **Решение:**
 ```bash
 # Ubuntu/Debian
-sudo apt install grub-pc-bin
+sudo apt install limine
 
 # macOS
-# Установить GRUB через brew или использовать альтернативы
+# Установить Limine через пакетный менеджер или собрать из исходников
 ```
 
 #### Проблема 4: "ld: cannot find -lgcc"
@@ -300,8 +318,8 @@ objdump -h lakos.bin
 ### ISO (lakos.iso)
 - **Размер:** ~2MB
 - **Формат:** ISO 9660
-- **Загрузчик:** GRUB
-- **Стандарт:** Multiboot
+- **Загрузчик:** Limine
+- **Стандарт:** Multiboot1
 
 ## 🔍 Анализ бинарных файлов
 
@@ -351,7 +369,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Install dependencies
-        run: sudo apt install gcc gcc-multilib nasm xorriso grub-pc-bin
+        run: sudo apt install gcc gcc-multilib nasm xorriso limine
       - name: Build
         run: make all
       - name: Upload artifacts
@@ -367,7 +385,7 @@ jobs:
 FROM ubuntu:20.04
 
 RUN apt update && apt install -y \
-    gcc gcc-multilib nasm xorriso grub-pc-bin
+    gcc gcc-multilib nasm xorriso limine
 
 COPY . /lakos
 WORKDIR /lakos
@@ -380,7 +398,7 @@ CMD ["qemu-system-i386", "-cdrom", "lakos.iso"]
 
 - [GNU Make Manual](https://www.gnu.org/software/make/manual/)
 - [NASM Documentation](https://www.nasm.us/doc/)
-- [GRUB Manual](https://www.gnu.org/software/grub/manual/)
+- [Limine Documentation](https://github.com/limine-bootloader/limine/blob/trunk/USAGE.md)
 - [QEMU Documentation](https://www.qemu.org/documentation/)
 
 ---

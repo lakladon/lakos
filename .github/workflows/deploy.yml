@@ -58,7 +58,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y binutils gcc nasm grub-common xorriso mtools
+          sudo apt-get install -y binutils gcc nasm limine xorriso mtools
           sudo ln -s /usr/bin/gcc /usr/bin/i686-elf-gcc
           sudo ln -s /usr/bin/ld /usr/bin/i686-elf-ld
 

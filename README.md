@@ -6,7 +6,7 @@
 
 ## Возможности
 
-- загрузка через GRUB (Multiboot)
+- загрузка через Limine (Multiboot1)
 - текстовый терминал VGA с цветами, boot‑анимацией и информацией о системе
 - shell с историей команд и автодополнением
 - tar‑файловая система, вшитая в образ (`modules.tar`)
@@ -37,7 +37,8 @@ make clean
 - `gcc` с поддержкой `-m32` (или `i686-elf-gcc`)
 - `binutils`
 - `nasm`
-- `grub-mkrescue`, `xorriso`
+- `limine` (пакет с файлами `/usr/share/limine/*`)
+- `xorriso`
 
 ## Как пользоваться в системе
 

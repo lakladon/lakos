@@ -9,7 +9,7 @@
 - **Linux/macOS** (или WSL2 на Windows)
 - **GCC** с поддержкой 32-битной компиляции
 - **NASM** - ассемблер
-- **GRUB** tools
+- **Limine** (bootloader + deploy utility)
 - **xorriso** - для создания ISO
 
 ### Установка зависимостей
@@ -17,19 +17,19 @@
 **Ubuntu/Debian:**
 ```bash
 sudo apt update
-sudo apt install build-essential nasm xorriso grub-pc-bin
+sudo apt install build-essential nasm xorriso limine
 ```
 
 **macOS:**
 ```bash
 brew install nasm xorriso
-# GRUB можно установить через brew или использовать другие средства
+# Limine можно установить через пакетный менеджер или собрать из исходников
 ```
 
 **Windows (WSL2):**
 ```bash
 sudo apt update
-sudo apt install build-essential nasm xorriso grub-pc-bin
+sudo apt install build-essential nasm xorriso limine
 ```
 
 ## 🚀 Сборка и запуск

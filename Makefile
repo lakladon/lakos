@@ -44,6 +44,34 @@ USER_LDFLAGS = -m elf_i386 -e main -Ttext 0x200000 --unresolved-symbols=ignore-a
 
 USER_BIN = rootfs/bin/calc
 
+LIMINE = $(firstword $(wildcard /usr/bin/limine /usr/local/bin/limine /home/serg/lakos/tools/limine-install/bin/limine) limine)
+LIMINE_BIOS_CD = $(firstword $(wildcard \
+	/usr/share/limine/limine-bios-cd.bin \
+	/usr/local/share/limine/limine-bios-cd.bin \
+	/usr/local/share/limine-bootloader/limine-bios-cd.bin \
+	/home/serg/lakos/tools/limine-install/share/limine/limine-bios-cd.bin))
+LIMINE_UEFI_CD = $(firstword $(wildcard \
+	/usr/share/limine/limine-uefi-cd.bin \
+	/usr/local/share/limine/limine-uefi-cd.bin \
+	/usr/local/share/limine-bootloader/limine-uefi-cd.bin \
+	/home/serg/lakos/tools/limine-install/share/limine/limine-uefi-cd.bin))
+LIMINE_BIOS_SYS = $(firstword $(wildcard \
+	/usr/share/limine/limine-bios.sys \
+	/usr/local/share/limine/limine-bios.sys \
+	/usr/local/share/limine-bootloader/limine-bios.sys \
+	/home/serg/lakos/tools/limine-install/share/limine/limine-bios.sys \
+	/home/serg/lakos/tools/limine-10.7.0/bin/limine-bios.sys))
+LIMINE_BOOTX64 = $(firstword $(wildcard \
+	/usr/share/limine/BOOTX64.EFI \
+	/usr/local/share/limine/BOOTX64.EFI \
+	/usr/local/share/limine-bootloader/BOOTX64.EFI \
+	/home/serg/lakos/tools/limine-install/share/limine/BOOTX64.EFI))
+LIMINE_BOOTIA32 = $(firstword $(wildcard \
+	/usr/share/limine/BOOTIA32.EFI \
+	/usr/local/share/limine/BOOTIA32.EFI \
+	/usr/local/share/limine-bootloader/BOOTIA32.EFI \
+	/home/serg/lakos/tools/limine-install/share/limine/BOOTIA32.EFI))
+
 # By default build full bootable artifact set (kernel + modules + ISO)
 all: iso
 
@@ -64,18 +92,40 @@ rootfs/bin/calc: rootfs/bin/calc.c
 	$(LD) $(USER_LDFLAGS) -o $@ /tmp/calc.o
 
 iso: lakos.bin modules.tar
-	mkdir -p isodir/boot/grub
+	@test -f "$(LIMINE_BIOS_CD)" || (echo "Missing $(LIMINE_BIOS_CD). Install Limine package." && exit 1)
+	@test -f "$(LIMINE_UEFI_CD)" || (echo "Missing $(LIMINE_UEFI_CD). Install Limine package." && exit 1)
+	@test -f "$(LIMINE_BIOS_SYS)" || (echo "Missing $(LIMINE_BIOS_SYS). Install Limine package." && exit 1)
+	@test -f "$(LIMINE_BOOTX64)" || (echo "Missing $(LIMINE_BOOTX64). Install Limine package." && exit 1)
+	mkdir -p isodir/boot/limine isodir/EFI/BOOT
 	cp lakos.bin isodir/boot/
 	cp modules.tar isodir/boot/
-	echo 'set timeout=0' > isodir/boot/grub/grub.cfg
-	echo 'menuentry "Lakos OS" {' >> isodir/boot/grub/grub.cfg
-	echo '  multiboot /boot/lakos.bin' >> isodir/boot/grub/grub.cfg
-	echo '  module /boot/modules.tar' >> isodir/boot/grub/grub.cfg
-	echo '}' >> isodir/boot/grub/grub.cfg
-	grub-mkrescue -o lakos.iso isodir
+	cp boot/limine.conf isodir/
+	cp "$(LIMINE_BIOS_CD)" isodir/boot/limine/
+	cp "$(LIMINE_UEFI_CD)" isodir/boot/limine/
+	cp "$(LIMINE_BIOS_SYS)" isodir/boot/limine/
+	cp "$(LIMINE_BOOTX64)" isodir/EFI/BOOT/BOOTX64.EFI
+	@if [ -f "$(LIMINE_BOOTIA32)" ]; then cp "$(LIMINE_BOOTIA32)" isodir/EFI/BOOT/BOOTIA32.EFI; fi
+	xorriso -as mkisofs \
+		-b boot/limine/limine-bios-cd.bin \
+		-no-emul-boot \
+		-boot-load-size 4 \
+		-boot-info-table \
+		--efi-boot boot/limine/limine-uefi-cd.bin \
+		-efi-boot-part \
+		--efi-boot-image \
+		--protective-msdos-label \
+		isodir -o lakos.iso
+	@if command -v $(LIMINE) >/dev/null 2>&1; then \
+		$(LIMINE) bios-install lakos.iso 2>/dev/null || $(LIMINE) deploy lakos.iso; \
+	elif command -v limine-deploy >/dev/null 2>&1; then \
+		limine-deploy lakos.iso; \
+	else \
+		echo "Limine tool not found (expected 'limine' or 'limine-deploy')."; \
+		exit 1; \
+	fi
 
 run: iso
-	qemu-system-i386 -cdrom lakos.iso -boot d -m 512M
+	qemu-system-i386 -cdrom lakos.iso -boot d -m 512M -nographic
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
