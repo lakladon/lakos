@@ -89,6 +89,7 @@ void execute_command_with_output(const char* command, char* output, int output_s
 void execute_command_with_input(const char* command, const char* input);
 void grep_with_output(const char* pattern, const char* filename, char* output, int output_size);
 void grep_with_input(const char* pattern, const char* input);
+static file_t* find_file(const char* name);
 
 static void append_capture(char* output, int output_size, const char* text) {
     if (!output || output_size <= 0 || !text) return;
@@ -265,6 +266,136 @@ static void ls_with_output(const char* args, char* output, int output_size) {
         }
     } else {
         append_capture(output, output_size, ".\n");
+    }
+}
+
+static void cat_with_output(const char* args, char* output, int output_size) {
+    const char* filename = args;
+    if (!filename || strlen(filename) == 0) {
+        append_capture(output, output_size, "cat: missing file name\n");
+        return;
+    }
+
+    int handled = 0;
+    if (tar_archive) {
+        char tar_path[256];
+        if (filename[0] == '/') {
+            strcpy(tar_path, filename + 1);
+        } else if (strcmp(current_dir, "/") == 0) {
+            strcpy(tar_path, filename);
+        } else {
+            strcpy(tar_path, current_dir + 1);
+            if (tar_path[strlen(tar_path) - 1] != '/') {
+                strcat(tar_path, "/");
+            }
+            strcat(tar_path, filename);
+        }
+
+        void* data = tar_lookup(tar_archive, tar_path);
+        int size = tar_get_file_size(tar_archive, tar_path);
+        if (data && size >= 0) {
+            char* bytes = (char*)data;
+            append_capture_n(output, output_size, bytes, size);
+            append_capture(output, output_size, "\n");
+            handled = 1;
+        }
+    }
+
+    if (!handled) {
+        file_t* f = find_file(filename);
+        if (f) {
+            append_capture_n(output, output_size, f->content, f->size);
+            append_capture(output, output_size, "\n");
+        } else {
+            append_capture(output, output_size, "cat: ");
+            append_capture(output, output_size, filename);
+            append_capture(output, output_size, ": No such file\n");
+        }
+    }
+}
+
+static void help_with_output(const char* args, char* output, int output_size) {
+    if (args && strlen(args) > 0) {
+        append_capture(output, output_size, "Use: man ");
+        append_capture(output, output_size, args);
+        append_capture(output, output_size, "\n");
+        return;
+    }
+
+    append_capture(output, output_size,
+        "Lakos OS Commands: help, man, cls, ver, pwd, ls, cd, echo, uname, date, cat, mkdir, disks, read_sector, write_sector, mount, useradd, passwd, login, userdel, crypt, whoami, touch, rm, cp, shutdown, reboot, gui\n"
+        "Available programs: hello, test, editor, calc\n"
+        "Tip: <command> --help or man <command>\n");
+}
+
+static void man_with_output(const char* args, char* output, int output_size) {
+    if (!args || strlen(args) == 0) {
+        append_capture(output, output_size, "usage: man <command>\n");
+        return;
+    }
+
+    if (strcmp(args, "help") == 0) {
+        append_capture(output, output_size, "help - show command list\nusage: help\n");
+    } else if (strcmp(args, "man") == 0) {
+        append_capture(output, output_size, "man - show short manual for a command\nusage: man <command>\n");
+    } else if (strcmp(args, "ls") == 0) {
+        append_capture(output, output_size, "ls - list files/directories\nusage: ls [path]\n");
+    } else if (strcmp(args, "cd") == 0) {
+        append_capture(output, output_size, "cd - change directory\nusage: cd <path>\n");
+    } else if (strcmp(args, "pwd") == 0) {
+        append_capture(output, output_size, "pwd - print current directory\nusage: pwd\n");
+    } else if (strcmp(args, "cat") == 0) {
+        append_capture(output, output_size, "cat - print file content\nusage: cat <file>\n");
+    } else if (strcmp(args, "echo") == 0) {
+        append_capture(output, output_size, "echo - print text\nusage: echo <text>\n");
+    } else if (strcmp(args, "mkdir") == 0) {
+        append_capture(output, output_size, "mkdir - create directory\nusage: mkdir <name>\n");
+    } else if (strcmp(args, "touch") == 0) {
+        append_capture(output, output_size, "touch - create empty file\nusage: touch <file>\n");
+    } else if (strcmp(args, "rm") == 0) {
+        append_capture(output, output_size, "rm - remove file\nusage: rm <file>\n");
+    } else if (strcmp(args, "cp") == 0) {
+        append_capture(output, output_size, "cp - copy file\nusage: cp <src> <dst>\n");
+    } else if (strcmp(args, "grep") == 0) {
+        append_capture(output, output_size, "grep - search lines by pattern\nusage: grep <pattern> <file>\n");
+    } else if (strcmp(args, "crypt") == 0) {
+        append_capture(output, output_size, "crypt - encrypt/decrypt text\nusage: crypt -e <key> <text> | crypt -d <key> <text>\n");
+    } else if (strcmp(args, "ver") == 0) {
+        append_capture(output, output_size, "ver - show system version\nusage: ver\n");
+    } else if (strcmp(args, "uname") == 0) {
+        append_capture(output, output_size, "uname - show system name\nusage: uname\n");
+    } else if (strcmp(args, "date") == 0) {
+        append_capture(output, output_size, "date - show current date/time\nusage: date\n");
+    } else if (strcmp(args, "whoami") == 0) {
+        append_capture(output, output_size, "whoami - show current user\nusage: whoami\n");
+    } else if (strcmp(args, "disks") == 0) {
+        append_capture(output, output_size, "disks - list detected disks\nusage: disks\n");
+    } else if (strcmp(args, "read_sector") == 0) {
+        append_capture(output, output_size, "read_sector - read ATA sector\nusage: read_sector <drive> <lba>\n");
+    } else if (strcmp(args, "write_sector") == 0) {
+        append_capture(output, output_size, "write_sector - write ATA sector\nusage: write_sector <drive> <lba> <hex-data...>\n");
+    } else if (strcmp(args, "mount") == 0) {
+        append_capture(output, output_size, "mount - mount filesystem/device\nusage: mount <device> <path>\n");
+    } else if (strcmp(args, "useradd") == 0) {
+        append_capture(output, output_size, "useradd - create user\nusage: useradd <name>\n");
+    } else if (strcmp(args, "userdel") == 0) {
+        append_capture(output, output_size, "userdel - remove user\nusage: userdel <name>\n");
+    } else if (strcmp(args, "login") == 0) {
+        append_capture(output, output_size, "login - switch/login user\nusage: login <name>\n");
+    } else if (strcmp(args, "passwd") == 0) {
+        append_capture(output, output_size, "passwd - change password\nusage: passwd [user]\n");
+    } else if (strcmp(args, "gui") == 0) {
+        append_capture(output, output_size, "gui - start primitive GUI\nusage: gui\n");
+    } else if (strcmp(args, "shutdown") == 0) {
+        append_capture(output, output_size, "shutdown - power off machine\nusage: shutdown\n");
+    } else if (strcmp(args, "reboot") == 0) {
+        append_capture(output, output_size, "reboot - restart machine\nusage: reboot\n");
+    } else if (strcmp(args, "cls") == 0) {
+        append_capture(output, output_size, "cls - clear screen\nusage: cls\n");
+    } else {
+        append_capture(output, output_size, "man: no manual entry for '");
+        append_capture(output, output_size, args);
+        append_capture(output, output_size, "'\n");
     }
 }
 
@@ -810,53 +941,14 @@ void grep(const char* args) {
 
 // Function to execute a command and capture its output
 void execute_command_with_output(const char* command, char* output, int output_size) {
-    // For now, we'll implement a simple version that handles basic commands
-    // In a full implementation, this would capture the output of the command
-    
-    // Parse the command
-    char cmd[64];
-    int i = 0;
-    while (command[i] && command[i] != ' ' && i < 63) {
-        cmd[i] = command[i];
-        i++;
+    if (!output || output_size <= 0) {
+        return;
     }
-    cmd[i] = '\0';
-    
-    const char* args = command + i;
-    while (*args == ' ') args++;
 
-    // For grep, we'll implement the output capture
-    if (strcmp(cmd, "grep") == 0) {
-        // Simple grep implementation that captures output
-        char pattern[256];
-        char filename[256];
-
-        // Extract pattern and filename
-        const char* p = args;
-        int j = 0;
-        while (*p && *p != ' ' && j < 255) {
-            pattern[j++] = *p++;
-        }
-        pattern[j] = '\0';
-        while (*p == ' ') p++;
-        strcpy(filename, p);
-
-        // Execute grep and capture output
-        grep_with_output(pattern, filename, output, output_size);
-    } else if (strcmp(cmd, "ls") == 0) {
-        // Capture ls output for pipes (so ls | grep works).
-        output[0] = '\0';
-        ls_with_output(args, output, output_size);
-    } else if (strcmp(cmd, "echo") == 0) {
-        // Capture echo output for pipes (so echo text | grep pat works).
-        output[0] = '\0';
-        append_capture(output, output_size, args);
-        append_capture(output, output_size, "\n");
-    } else {
-        // For other commands, just execute them normally
-        kernel_execute_command(command);
-        strcpy(output, ""); // No output captured for other commands in this simple implementation
-    }
+    output[0] = '\0';
+    terminal_capture_begin(output, output_size);
+    kernel_execute_command(command);
+    terminal_capture_end();
 }
 
 // Function to execute a command with input from a buffer

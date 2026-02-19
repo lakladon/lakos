@@ -30,6 +30,35 @@ int term_col = 0;
 int term_row = 0;
 uint8_t current_attr = 0x0F; // white on black
 
+// Optional terminal output capture (used for shell pipes).
+static int term_capture_enabled = 0;
+static char* term_capture_buffer = 0;
+static int term_capture_size = 0;
+static int term_capture_pos = 0;
+
+void terminal_capture_begin(char* buffer, int size) {
+    term_capture_buffer = buffer;
+    term_capture_size = size;
+    term_capture_pos = 0;
+    term_capture_enabled = (buffer && size > 0) ? 1 : 0;
+    if (term_capture_enabled) {
+        term_capture_buffer[0] = '\0';
+    }
+}
+
+void terminal_capture_end() {
+    if (term_capture_enabled && term_capture_buffer && term_capture_size > 0) {
+        if (term_capture_pos >= term_capture_size) {
+            term_capture_pos = term_capture_size - 1;
+        }
+        term_capture_buffer[term_capture_pos] = '\0';
+    }
+    term_capture_enabled = 0;
+    term_capture_buffer = 0;
+    term_capture_size = 0;
+    term_capture_pos = 0;
+}
+
 void update_cursor(int x, int y) {
     uint16_t pos = y * VGA_WIDTH + x;
     outb(0x3D4, 0x0F);
@@ -49,6 +78,16 @@ void terminal_initialize() {
     // update_cursor(0, 0);
 }
 void terminal_putchar(char c) {
+    if (term_capture_enabled && term_capture_buffer && term_capture_size > 0) {
+        if (c == '\b') {
+            if (term_capture_pos > 0) term_capture_pos--;
+        } else if (term_capture_pos < term_capture_size - 1) {
+            term_capture_buffer[term_capture_pos++] = c;
+        }
+        term_capture_buffer[term_capture_pos] = '\0';
+        return;
+    }
+
     if (c == '\n') {
         term_col = 0;
         term_row++;

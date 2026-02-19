@@ -19,5 +19,7 @@ char* strncpy(char* dest, const char* src, unsigned int n);
 void itoa(int n, char* buf);
 void tar_list_directory(void* archive, const char* dirpath);
 int snprintf(char* str, unsigned int size, const char* format, ...);
+void terminal_capture_begin(char* buffer, int size);
+void terminal_capture_end();
 
 #endif
