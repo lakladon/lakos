@@ -632,28 +632,12 @@ void grep(const char* args) {
     }
 }
 
-static void append_output(char* output, int output_size, const char* text) {
-    if (!output || output_size <= 0 || !text) return;
-    int len = strlen(output);
-    int add = strlen(text);
-    if (len >= output_size - 1) return;
-    if (len + add >= output_size) {
-        add = output_size - len - 1;
-    }
-    if (add > 0) {
-        strncat(output, text, add);
-    }
-}
-
 // Function to execute a command and capture its output
 void execute_command_with_output(const char* command, char* output, int output_size) {
-    if (!output || output_size <= 0) {
-        return;
-    }
-
-    output[0] = '\0';
-
-    // Parse command and args.
+    // For now, we'll implement a simple version that handles basic commands
+    // In a full implementation, this would capture the output of the command
+    
+    // Parse the command
     char cmd[64];
     int i = 0;
     while (command[i] && command[i] != ' ' && i < 63) {
@@ -661,32 +645,17 @@ void execute_command_with_output(const char* command, char* output, int output_s
         i++;
     }
     cmd[i] = '\0';
-
+    
     const char* args = command + i;
     while (*args == ' ') args++;
 
-    // Common text-producing commands for pipes.
-    if (strcmp(cmd, "pwd") == 0) {
-        append_output(output, output_size, current_dir);
-        append_output(output, output_size, "\n");
-    } else if (strcmp(cmd, "whoami") == 0) {
-        append_output(output, output_size, current_user);
-        append_output(output, output_size, "\n");
-    } else if (strcmp(cmd, "ver") == 0) {
-        append_output(output, output_size, "lakKERNEL ");
-        append_output(output, output_size, KERNEL_VERSION);
-        append_output(output, output_size, " [Kernel Mode]\n");
-    } else if (strcmp(cmd, "uname") == 0) {
-        append_output(output, output_size, "Lakos\n");
-    } else if (strcmp(cmd, "date") == 0) {
-        append_output(output, output_size, "2026-01-10\n");
-    } else if (strcmp(cmd, "echo") == 0) {
-        append_output(output, output_size, args);
-        append_output(output, output_size, "\n");
-    } else if (strcmp(cmd, "grep") == 0) {
+    // For grep, we'll implement the output capture
+    if (strcmp(cmd, "grep") == 0) {
+        // Simple grep implementation that captures output
         char pattern[256];
         char filename[256];
 
+        // Extract pattern and filename
         const char* p = args;
         int j = 0;
         while (*p && *p != ' ' && j < 255) {
@@ -695,16 +664,30 @@ void execute_command_with_output(const char* command, char* output, int output_s
         pattern[j] = '\0';
         while (*p == ' ') p++;
         strcpy(filename, p);
-        grep_with_output(pattern, filename, output, output_size);
-    } else {
-        // Unknown command capture is not supported yet; keep empty.
-        output[0] = '\0';
-    }
 
-    // Normalize trailing newlines for piped consumer.
-    int len = strlen(output);
-    while (len > 0 && (output[len - 1] == '\n' || output[len - 1] == '\r')) {
-        output[--len] = '\0';
+        // Execute grep and capture output
+        grep_with_output(pattern, filename, output, output_size);
+    } else if (strcmp(cmd, "ls") == 0) {
+        // Capture ls output
+        const char* target_dir = args;
+        if (strlen(target_dir) == 0) {
+            target_dir = current_dir;
+        }
+
+        // Prefer tar archive listing when available
+        if (tar_archive) {
+            // For now, just execute normally and let it print
+            kernel_execute_command(command);
+            strcpy(output, ""); // No actual capture yet
+        } else {
+            // Fall back to in-memory directory system
+            kernel_execute_command(command);
+            strcpy(output, ""); // No actual capture yet
+        }
+    } else {
+        // For other commands, just execute them normally
+        kernel_execute_command(command);
+        strcpy(output, ""); // No output captured for other commands in this simple implementation
     }
 }
 
