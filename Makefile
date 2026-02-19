@@ -17,6 +17,7 @@ endif
 AS = nasm
 CFLAGS = -m32 -ffreestanding -O0 -Wall -Wextra -I. -Ikernel -Ikernel/include -Ikernel/drivers
 LDFLAGS = -m elf_i386 -T linker.ld
+PROJECT_ROOT := $(abspath .)
 OBJ = \
       kernel/start.o \
       kernel/kernel.o \
@@ -44,33 +45,33 @@ USER_LDFLAGS = -m elf_i386 -e main -Ttext 0x200000 --unresolved-symbols=ignore-a
 
 USER_BIN = rootfs/bin/calc
 
-LIMINE = $(firstword $(wildcard /usr/bin/limine /usr/local/bin/limine /home/serg/lakos/tools/limine-install/bin/limine) limine)
+LIMINE = $(firstword $(wildcard /usr/bin/limine /usr/local/bin/limine $(PROJECT_ROOT)/tools/limine-install/bin/limine) limine)
 LIMINE_BIOS_CD = $(firstword $(wildcard \
 	/usr/share/limine/limine-bios-cd.bin \
 	/usr/local/share/limine/limine-bios-cd.bin \
 	/usr/local/share/limine-bootloader/limine-bios-cd.bin \
-	/home/serg/lakos/tools/limine-install/share/limine/limine-bios-cd.bin))
+	$(PROJECT_ROOT)/tools/limine-install/share/limine/limine-bios-cd.bin))
 LIMINE_UEFI_CD = $(firstword $(wildcard \
 	/usr/share/limine/limine-uefi-cd.bin \
 	/usr/local/share/limine/limine-uefi-cd.bin \
 	/usr/local/share/limine-bootloader/limine-uefi-cd.bin \
-	/home/serg/lakos/tools/limine-install/share/limine/limine-uefi-cd.bin))
+	$(PROJECT_ROOT)/tools/limine-install/share/limine/limine-uefi-cd.bin))
 LIMINE_BIOS_SYS = $(firstword $(wildcard \
 	/usr/share/limine/limine-bios.sys \
 	/usr/local/share/limine/limine-bios.sys \
 	/usr/local/share/limine-bootloader/limine-bios.sys \
-	/home/serg/lakos/tools/limine-install/share/limine/limine-bios.sys \
-	/home/serg/lakos/tools/limine-10.7.0/bin/limine-bios.sys))
+	$(PROJECT_ROOT)/tools/limine-install/share/limine/limine-bios.sys \
+	$(PROJECT_ROOT)/tools/limine-10.7.0/bin/limine-bios.sys))
 LIMINE_BOOTX64 = $(firstword $(wildcard \
 	/usr/share/limine/BOOTX64.EFI \
 	/usr/local/share/limine/BOOTX64.EFI \
 	/usr/local/share/limine-bootloader/BOOTX64.EFI \
-	/home/serg/lakos/tools/limine-install/share/limine/BOOTX64.EFI))
+	$(PROJECT_ROOT)/tools/limine-install/share/limine/BOOTX64.EFI))
 LIMINE_BOOTIA32 = $(firstword $(wildcard \
 	/usr/share/limine/BOOTIA32.EFI \
 	/usr/local/share/limine/BOOTIA32.EFI \
 	/usr/local/share/limine-bootloader/BOOTIA32.EFI \
-	/home/serg/lakos/tools/limine-install/share/limine/BOOTIA32.EFI))
+	$(PROJECT_ROOT)/tools/limine-install/share/limine/BOOTIA32.EFI))
 
 # By default build full bootable artifact set (kernel + modules + ISO)
 all: iso
