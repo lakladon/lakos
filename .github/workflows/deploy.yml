@@ -33,11 +33,25 @@ jobs:
               version="${latest_version#v}"
               IFS='.' read -r major minor patch <<< "$version"
               patch=$((patch + 1))
+
+              # Если patch становится больше 10 (x.y.10 -> следующий),
+              # увеличиваем minor и сбрасываем patch в 0.
+              if [ "$patch" -gt 10 ]; then
+                minor=$((minor + 1))
+                patch=0
+              fi
+
               new_version="v${major}.${minor}.${patch}"
 
               while git rev-parse "$new_version" >/dev/null 2>&1; do
                 echo "Tag $new_version already exists, increasing patch version..."
                 patch=$((patch + 1))
+
+                if [ "$patch" -gt 10 ]; then
+                  minor=$((minor + 1))
+                  patch=0
+                fi
+
                 new_version="v${major}.${minor}.${patch}"
               done
             fi
