@@ -103,10 +103,126 @@ static void append_capture(char* output, int output_size, const char* text) {
     }
 }
 
+static void terminal_write_n(const char* s, int n) {
+    if (!s || n <= 0) return;
+    for (int i = 0; i < n; i++) {
+        terminal_putchar(s[i]);
+    }
+}
+
+static void append_capture_n(char* output, int output_size, const char* text, int n) {
+    if (!output || output_size <= 0 || !text || n <= 0) return;
+    for (int i = 0; i < n; i++) {
+        int len = strlen(output);
+        if (len >= output_size - 1) break;
+        output[len] = text[i];
+        output[len + 1] = '\0';
+    }
+}
+
+static void print_highlighted_line(const char* line, const char* pattern) {
+    if (!line) return;
+    if (!pattern || pattern[0] == '\0') {
+        terminal_writestring(line);
+        terminal_putchar('\n');
+        return;
+    }
+
+    int pat_len = strlen(pattern);
+    const char* p = line;
+
+    while (1) {
+        const char* match = strstr(p, pattern);
+        if (!match) {
+            terminal_writestring(p);
+            break;
+        }
+
+        terminal_write_n(p, (int)(match - p));
+        terminal_writestring("\033[31m");
+        terminal_write_n(match, pat_len);
+        terminal_writestring("\033[0m");
+        p = match + pat_len;
+    }
+
+    terminal_putchar('\n');
+}
+
+static void append_highlighted_line(char* output, int output_size, const char* line, const char* pattern) {
+    if (!output || output_size <= 0 || !line) return;
+    if (!pattern || pattern[0] == '\0') {
+        append_capture(output, output_size, line);
+        append_capture(output, output_size, "\n");
+        return;
+    }
+
+    int pat_len = strlen(pattern);
+    const char* p = line;
+
+    while (1) {
+        const char* match = strstr(p, pattern);
+        if (!match) {
+            append_capture(output, output_size, p);
+            break;
+        }
+
+        append_capture_n(output, output_size, p, (int)(match - p));
+        append_capture(output, output_size, "\033[31m");
+        append_capture_n(output, output_size, match, pat_len);
+        append_capture(output, output_size, "\033[0m");
+        p = match + pat_len;
+    }
+
+    append_capture(output, output_size, "\n");
+}
+
 static void ls_with_output(const char* args, char* output, int output_size) {
     const char* target_dir = args;
     if (strlen(target_dir) == 0) {
         target_dir = current_dir;
+    }
+
+    // When tar is mounted, pipe-aware ls should still reflect real root folders.
+    // This keeps `ls | grep ...` consistent with plain `ls`.
+    if (tar_archive && strcmp(target_dir, "/") == 0) {
+        char tar_dirs[100][256];
+        int tar_count = 0;
+        tar_get_directories(tar_archive, tar_dirs, &tar_count);
+
+        char top_names[32][32];
+        int top_count = 0;
+
+        for (int i = 0; i < tar_count; i++) {
+            if (tar_dirs[i][0] == '\0') continue;
+
+            char* slash = strchr(tar_dirs[i], '/');
+            int name_len = slash ? (int)(slash - tar_dirs[i]) : (int)strlen(tar_dirs[i]);
+            if (name_len <= 0) continue;
+            if (name_len >= 32) name_len = 31;
+
+            char top_name[32];
+            strncpy(top_name, tar_dirs[i], name_len);
+            top_name[name_len] = '\0';
+
+            int exists = 0;
+            for (int j = 0; j < top_count; j++) {
+                if (strcmp(top_names[j], top_name) == 0) {
+                    exists = 1;
+                    break;
+                }
+            }
+
+            if (!exists && top_count < 32) {
+                strcpy(top_names[top_count++], top_name);
+            }
+        }
+
+        for (int i = 0; i < top_count; i++) {
+            append_capture(output, output_size, top_names[i]);
+            append_capture(output, output_size, "/ ");
+        }
+        append_capture(output, output_size, "\n");
+        return;
     }
 
     if (strcmp(target_dir, "/") == 0) {
@@ -642,8 +758,7 @@ void grep(const char* args) {
                         line[line_len] = '\0';
                         
                         if (strstr(line, pattern)) {
-                            terminal_writestring(line);
-                            terminal_putchar('\n');
+                            print_highlighted_line(line, pattern);
                             found = 1;
                         }
                     }
@@ -675,8 +790,7 @@ void grep(const char* args) {
                     line[line_len] = '\0';
                     
                     if (strstr(line, pattern)) {
-                        terminal_writestring(line);
-                        terminal_putchar('\n');
+                        print_highlighted_line(line, pattern);
                         found = 1;
                     }
                 }
@@ -733,6 +847,11 @@ void execute_command_with_output(const char* command, char* output, int output_s
         // Capture ls output for pipes (so ls | grep works).
         output[0] = '\0';
         ls_with_output(args, output, output_size);
+    } else if (strcmp(cmd, "echo") == 0) {
+        // Capture echo output for pipes (so echo text | grep pat works).
+        output[0] = '\0';
+        append_capture(output, output_size, args);
+        append_capture(output, output_size, "\n");
     } else {
         // For other commands, just execute them normally
         kernel_execute_command(command);
@@ -811,13 +930,10 @@ void grep_with_output(const char* pattern, const char* filename, char* output, i
                         line[line_len] = '\0';
                         
                         if (strstr(line, pattern)) {
-                            // Add line to output buffer
-                            if (output_pos + line_len + 1 < output_size - 1) {
-                                strcpy(output + output_pos, line);
-                                output_pos += line_len;
-                                output[output_pos++] = '\n';
-                                found = 1;
-                            }
+                            // Add highlighted line to output buffer
+                            append_highlighted_line(output, output_size, line, pattern);
+                            output_pos = strlen(output);
+                            found = 1;
                         }
                     }
                     line_start = i + 1;
@@ -851,13 +967,10 @@ void grep_with_output(const char* pattern, const char* filename, char* output, i
                     line[line_len] = '\0';
                     
                     if (strstr(line, pattern)) {
-                        // Add line to output buffer
-                        if (output_pos + line_len + 1 < output_size - 1) {
-                            strcpy(output + output_pos, line);
-                            output_pos += line_len;
-                            output[output_pos++] = '\n';
-                            found = 1;
-                        }
+                        // Add highlighted line to output buffer
+                        append_highlighted_line(output, output_size, line, pattern);
+                        output_pos = strlen(output);
+                        found = 1;
                     }
                 }
                 line_start = i + 1;
@@ -896,8 +1009,7 @@ void grep_with_input(const char* pattern, const char* input) {
                 line[line_len] = '\0';
                 
                 if (strstr(line, pattern)) {
-                    terminal_writestring(line);
-                    terminal_putchar('\n');
+                    print_highlighted_line(line, pattern);
                     found = 1;
                 }
             }
@@ -914,8 +1026,7 @@ void grep_with_input(const char* pattern, const char* input) {
         line[last_line_len] = '\0';
         
         if (strstr(line, pattern)) {
-            terminal_writestring(line);
-            terminal_putchar('\n');
+            print_highlighted_line(line, pattern);
             found = 1;
         }
     }
