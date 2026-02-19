@@ -90,6 +90,68 @@ void execute_command_with_input(const char* command, const char* input);
 void grep_with_output(const char* pattern, const char* filename, char* output, int output_size);
 void grep_with_input(const char* pattern, const char* input);
 
+static void append_capture(char* output, int output_size, const char* text) {
+    if (!output || output_size <= 0 || !text) return;
+    int len = strlen(output);
+    int add = strlen(text);
+    if (len >= output_size - 1) return;
+    if (len + add >= output_size) {
+        add = output_size - len - 1;
+    }
+    if (add > 0) {
+        strncat(output, text, add);
+    }
+}
+
+static void ls_with_output(const char* args, char* output, int output_size) {
+    const char* target_dir = args;
+    if (strlen(target_dir) == 0) {
+        target_dir = current_dir;
+    }
+
+    if (strcmp(target_dir, "/") == 0) {
+        for (int i = 0; i < dir_count; i++) {
+            append_capture(output, output_size, dirs[i]);
+            append_capture(output, output_size, "/ ");
+        }
+        append_capture(output, output_size, "\n");
+    } else if (strcmp(target_dir, "/bin") == 0) {
+        append_capture(output, output_size, "hello  test  editor  calc\n");
+    } else if (strcmp(target_dir, "/home") == 0) {
+        for (int i = 0; i < home_dir_count; i++) {
+            append_capture(output, output_size, home_dirs[i]);
+            append_capture(output, output_size, "/ ");
+        }
+        append_capture(output, output_size, "\n");
+    } else if (strncmp(target_dir, "/home/", 6) == 0) {
+        const char* dir = target_dir + 6;
+        int dir_len = 0;
+        while (dir[dir_len] && dir[dir_len] != '/') dir_len++;
+        char dir_name[32];
+        if (dir_len >= 32) dir_len = 31;
+        for (int k = 0; k < dir_len; k++) dir_name[k] = dir[k];
+        dir_name[dir_len] = '\0';
+
+        int found = 0;
+        for (int i = 0; i < home_dir_count; i++) {
+            if (strcmp(home_dirs[i], dir_name) == 0) {
+                for (int j = 0; j < home_sub_count[i]; j++) {
+                    append_capture(output, output_size, home_subdirs[i][j]);
+                    append_capture(output, output_size, "/ ");
+                }
+                append_capture(output, output_size, "\n");
+                found = 1;
+                break;
+            }
+        }
+        if (!found) {
+            append_capture(output, output_size, ".\n");
+        }
+    } else {
+        append_capture(output, output_size, ".\n");
+    }
+}
+
 // Forward declarations for internal helpers used by command files.
 static file_t* find_file(const char* name);
 static file_t* create_file(const char* name);
@@ -668,22 +730,9 @@ void execute_command_with_output(const char* command, char* output, int output_s
         // Execute grep and capture output
         grep_with_output(pattern, filename, output, output_size);
     } else if (strcmp(cmd, "ls") == 0) {
-        // Capture ls output
-        const char* target_dir = args;
-        if (strlen(target_dir) == 0) {
-            target_dir = current_dir;
-        }
-
-        // Prefer tar archive listing when available
-        if (tar_archive) {
-            // For now, just execute normally and let it print
-            kernel_execute_command(command);
-            strcpy(output, ""); // No actual capture yet
-        } else {
-            // Fall back to in-memory directory system
-            kernel_execute_command(command);
-            strcpy(output, ""); // No actual capture yet
-        }
+        // Capture ls output for pipes (so ls | grep works).
+        output[0] = '\0';
+        ls_with_output(args, output, output_size);
     } else {
         // For other commands, just execute them normally
         kernel_execute_command(command);
