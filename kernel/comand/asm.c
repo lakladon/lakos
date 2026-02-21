@@ -536,18 +536,25 @@ static void execute_asm_code() {
     
     // Execute the code directly using inline assembly
     int result = 0;
+    int saved_result = 0;
     
     __asm__ volatile (
+        "push %%eax\n"         // save EAX
+        "push %%ecx\n"         // save ECX
+        "push %%edx\n"         // save EDX
+        "push %%ebx\n"         // save EBX
         "mov %1, %%ebx\n"      // code pointer
-        "pusha\n"              // save all registers
         "call *%%ebx\n"        // call the code
-        "mov %%eax, %%esi\n"   // save result to ESI (not restored by popa)
-        "popa\n"               // restore all registers (including old EAX)
-        "mov %%esi, %0\n"      // get result from ESI
-        : "=r"(result)
+        "mov %%eax, %0\n"      // save result
+        "pop %%ebx\n"          // restore EBX
+        "pop %%edx\n"          // restore EDX
+        "pop %%ecx\n"          // restore ECX
+        "pop %%eax\n"          // restore EAX
+        : "=m"(saved_result)
         : "r"(exec_code)
-        : "ebx", "esi", "memory"
+        : "memory"
     );
+    result = saved_result;
     
     terminal_writestring("Result (EAX): ");
     char hex_result[12];
