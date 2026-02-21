@@ -122,12 +122,7 @@ static int encode_instruction(const char* line, unsigned char* out) {
             while (*dest == ' ') dest++;
             while (*src == ' ') src++;
             
-            int val = 0;
-            if (src[0] == '0' && src[1] == 'x') {
-                val = strtol(src + 2, 0, 16);
-            } else {
-                val = strtol(src, 0, 10);
-            }
+            int val = asm_strtoi(src, 0);
             
             // MOV reg, imm32 (32-bit)
             if (strcmp(dest, "eax") == 0) {
@@ -136,7 +131,7 @@ static int encode_instruction(const char* line, unsigned char* out) {
                 out[len++] = 0xB9;
             } else if (strcmp(dest, "edx") == 0) {
                 out[len++] = 0xBA;
-            } else if (strcmp(dest, "ebx") == 0) {
+             } else if (strcmp(dest, "ebx") == 0) {
                 out[len++] = 0xBB;
             } else if (strcmp(dest, "esp") == 0) {
                 out[len++] = 0xBC;
@@ -205,7 +200,7 @@ static int encode_instruction(const char* line, unsigned char* out) {
             }
         }
     }
-    // ADD reg, reg
+    // ADD reg, reg or ADD reg, imm32
     else if (strcmp(instr, "add") == 0) {
         char* comma = strchr(args, ',');
         if (comma) {
@@ -222,15 +217,34 @@ static int encode_instruction(const char* line, unsigned char* out) {
             else if (strcmp(dest, "ecx") == 0) dest_reg = 1;
             else if (strcmp(dest, "edx") == 0) dest_reg = 2;
             else if (strcmp(dest, "ebx") == 0) dest_reg = 3;
+            else if (strcmp(dest, "esp") == 0) dest_reg = 4;
+            else if (strcmp(dest, "ebp") == 0) dest_reg = 5;
+            else if (strcmp(dest, "esi") == 0) dest_reg = 6;
+            else if (strcmp(dest, "edi") == 0) dest_reg = 7;
             
+            // Check if src is a register
             if (strcmp(src, "eax") == 0) src_reg = 0;
             else if (strcmp(src, "ecx") == 0) src_reg = 1;
             else if (strcmp(src, "edx") == 0) src_reg = 2;
             else if (strcmp(src, "ebx") == 0) src_reg = 3;
+            else if (strcmp(src, "esp") == 0) src_reg = 4;
+            else if (strcmp(src, "ebp") == 0) src_reg = 5;
+            else if (strcmp(src, "esi") == 0) src_reg = 6;
+            else if (strcmp(src, "edi") == 0) src_reg = 7;
             
             if (dest_reg >= 0 && src_reg >= 0) {
+                // ADD reg, reg
                 out[len++] = 0x01;
                 out[len++] = 0xC0 | (src_reg << 3) | dest_reg;
+            } else if (dest_reg >= 0) {
+                // ADD reg, imm32 (add immediate to register)
+                int val = asm_strtoi(src, 0);
+                out[len++] = 0x81; // OR r/m32, imm32 opcode for ADD
+                out[len++] = 0xC0 | dest_reg; // ModR/M byte
+                out[len++] = val & 0xFF;
+                out[len++] = (val >> 8) & 0xFF;
+                out[len++] = (val >> 16) & 0xFF;
+                out[len++] = (val >> 24) & 0xFF;
             } else {
                 terminal_writestring("ADD: unknown register\n");
                 return 0;
@@ -320,12 +334,7 @@ static int encode_instruction(const char* line, unsigned char* out) {
         else if (strcmp(reg, "edi") == 0) { out[len++] = 0x57; }
         else {
             // PUSH imm32
-            int val = 0;
-            if (reg[0] == '0' && reg[1] == 'x') {
-                val = strtol(reg + 2, 0, 16);
-            } else {
-                val = strtol(reg, 0, 10);
-            }
+            int val = asm_strtoi(reg, 0);
             out[len++] = 0x68;
             out[len++] = val & 0xFF;
             out[len++] = (val >> 8) & 0xFF;
@@ -357,12 +366,7 @@ static int encode_instruction(const char* line, unsigned char* out) {
         while (*target == ' ') target++;
         
         // CALL rel32 (relative call)
-        int addr = 0;
-        if (target[0] == '0' && target[1] == 'x') {
-            addr = strtol(target + 2, 0, 16);
-        } else {
-            addr = strtol(target, 0, 10);
-        }
+        int addr = asm_strtoi(target, 0);
         out[len++] = 0xE8;
         // Relative offset (will need adjustment)
         out[len++] = addr & 0xFF;
@@ -375,12 +379,7 @@ static int encode_instruction(const char* line, unsigned char* out) {
         char* target = args;
         while (*target == ' ') target++;
         
-        int addr = 0;
-        if (target[0] == '0' && target[1] == 'x') {
-            addr = strtol(target + 2, 0, 16);
-        } else {
-            addr = strtol(target, 0, 10);
-        }
+        int addr = asm_strtoi(target, 0);
         out[len++] = 0xE9;
         out[len++] = addr & 0xFF;
         out[len++] = (addr >> 8) & 0xFF;
@@ -442,12 +441,7 @@ static int encode_instruction(const char* line, unsigned char* out) {
             while (*port == ' ') port++;
             while (*val == ' ') val++;
             
-            int port_num = 0;
-            if (port[0] == '0' && port[1] == 'x') {
-                port_num = strtol(port + 2, 0, 16);
-            } else {
-                port_num = strtol(port, 0, 10);
-            }
+            int port_num = asm_strtoi(port, 0);
             
             // OUT DX, AL or OUT imm8, AL
             if (strcmp(val, "al") == 0) {
@@ -470,12 +464,7 @@ static int encode_instruction(const char* line, unsigned char* out) {
             while (*dest == ' ') dest++;
             while (*port == ' ') port++;
             
-            int port_num = 0;
-            if (port[0] == '0' && port[1] == 'x') {
-                port_num = strtol(port + 2, 0, 16);
-            } else {
-                port_num = strtol(port, 0, 10);
-            }
+            int port_num = asm_strtoi(port, 0);
             
             if (strcmp(dest, "al") == 0) {
                 out[len++] = 0xE4;
@@ -487,17 +476,15 @@ static int encode_instruction(const char* line, unsigned char* out) {
         }
     }
     // DB - define byte (data)
-    else if (strcmp(instr, "db") == 0 || strcmp(instr, "db") == 0) {
+    else if (strcmp(instr, "db") == 0) {
         char* val = args;
         while (*val == ' ') val++;
         
         int byte_val = 0;
-        if (val[0] == '0' && val[1] == 'x') {
-            byte_val = strtol(val + 2, 0, 16);
-        } else if (val[0] == '\'') {
+        if (val[0] == '\'') {
             byte_val = val[1];
         } else {
-            byte_val = strtol(val, 0, 10);
+            byte_val = asm_strtoi(val, 0);
         }
         out[len++] = (unsigned char)byte_val;
     }
@@ -561,7 +548,7 @@ static void execute_asm_code() {
         : "memory"
     );
     
-    terminal_writestring("Result (EAX): 0x");
+    terminal_writestring("Result (EAX): ");
     char hex_result[12];
     int_to_hex(result, hex_result);
     terminal_writestring(hex_result);
@@ -689,6 +676,11 @@ static void cmd_asm(const char* args) {
             break;
         }
         else if (strcmp(line, "run") == 0 || strcmp(line, "exec") == 0) {
+            // Auto-add ret if not present
+            if (code_size == 0 || code_buffer[code_size-1] != 0xC3) {
+                code_buffer[code_size++] = 0xC3; // ret
+                terminal_writestring("Auto-added: ret (1 byte)\n");
+            }
             execute_asm_code();
         }
         else if (strcmp(line, "clear") == 0) {
