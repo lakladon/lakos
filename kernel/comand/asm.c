@@ -509,10 +509,6 @@ static void execute_asm_code() {
         return;
     }
     
-    // Make sure code is executable by copying to executable memory
-    // For simplicity, we'll execute directly from code_buffer
-    // In a real OS, you'd need to handle memory protection
-    
     terminal_writestring("Executing ");
     char buf[16];
     itoa(code_size, buf);
@@ -531,21 +527,26 @@ static void execute_asm_code() {
     }
     terminal_writestring("\n");
     
-    // Execute the code
-    typedef int (*code_fn)(void);
-    code_fn fn = (code_fn)code_buffer;
+    // Copy code to a known executable location (stack is usually executable)
+    // Use a simple approach: copy to stack and execute
+    unsigned char exec_code[64];
+    for (int i = 0; i < code_size && i < 63; i++) {
+        exec_code[i] = code_buffer[i];
+    }
     
-    // Save registers and execute
+    // Execute the code directly using inline assembly
     int result = 0;
     
     __asm__ volatile (
-        "pushal\n"
-        "call *%1\n"
-        "mov %%eax, %0\n"
-        "popal\n"
+        "mov %1, %%ebx\n"      // code pointer
+        "pusha\n"              // save all registers
+        "call *%%ebx\n"        // call the code
+        "mov %%eax, %%esi\n"   // save result to ESI (not restored by popa)
+        "popa\n"               // restore all registers (including old EAX)
+        "mov %%esi, %0\n"      // get result from ESI
         : "=r"(result)
-        : "r"(fn)
-        : "memory"
+        : "r"(exec_code)
+        : "ebx", "esi", "memory"
     );
     
     terminal_writestring("Result (EAX): ");
