@@ -217,6 +217,7 @@ static void reboot();
 #include "comand/gui.c"
 #include "comand/grep.c"
 #include "comand/calc.c"
+#include "comand/asm.c"
 
 void init_kernel_commands() {
     // If tar archive is available, get directories from it
@@ -604,6 +605,8 @@ void kernel_execute_command(const char* input) {
         cmd_grep(args);
     } else if (strcmp(cmd, "calc") == 0) {
         cmd_calc(args);
+    } else if (strcmp(cmd, "asm") == 0) {
+        cmd_asm(args);
     } else {
         if (is_file_in_path(cmd, pathbin)) {
             execute_binary(cmd);
