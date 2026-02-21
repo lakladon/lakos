@@ -617,7 +617,7 @@ static void asm_read_line(char* buffer, int max) {
                 else {
                     // Simple scancode to ASCII
                     if (scancode >= 2 && scancode <= 11) {
-                        c = shift_pressed ? "!@#$%^&*()"[scancode - 2] : '1' + (scancode - 2);
+                        c = shift_pressed ? "!@#$%^&*()"[scancode - 2] : "1234567890"[scancode - 2];
                     } else if (scancode >= 16 && scancode <= 25) {
                         c = shift_pressed ? "QWERTYUIOP"[scancode - 16] : "qwertyuiop"[scancode - 16];
                     } else if (scancode >= 30 && scancode <= 38) {
