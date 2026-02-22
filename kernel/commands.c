@@ -4,7 +4,7 @@
 #include "include/crypt.h"
 #include "include/version.h"
 #include "include/commands.h"
-#include <io.h>
+#include "drivers/io.h"
 
 extern void terminal_writestring(const char* s);
 extern void terminal_putchar(char c);

@@ -488,6 +488,25 @@ static int encode_instruction(const char* line, unsigned char* out) {
         }
         out[len++] = (unsigned char)byte_val;
     }
+    // ECHO - print text (pseudo-instruction)
+    else if (strcmp(instr, "echo") == 0 || strcmp(instr, "print") == 0) {
+        char* text = args;
+        while (*text == ' ') text++;
+        
+        // Remove quotes if present
+        if (text[0] == '"') {
+            text++;
+            int len_text = strlen(text);
+            if (len_text > 0 && text[len_text - 1] == '"') {
+                text[len_text - 1] = '\0';
+            }
+        }
+        
+        // Output the text directly
+        terminal_writestring(text);
+        terminal_writestring("\n");
+        return 0;  // No code generated
+    }
     // Comment or empty line
     else if (instr[0] == ';' || instr[0] == '#' || instr[0] == '\0') {
         return 0;
@@ -534,7 +553,7 @@ static void execute_asm_code() {
         exec_code[i] = code_buffer[i];
     }
     
-    // Execute the code directly using inline assembly
+    // Execute the code directly using inline assembly (32-bit)
     int result = 0;
     int saved_result = 0;
     
