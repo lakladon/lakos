@@ -1,6 +1,7 @@
-[global idt_flush]
+[bits 64]
+global idt_flush
 
 idt_flush:
-    mov eax, [esp + 4]  ; Получаем указатель на idt_ptr из стека
-    lidt [eax]          ; Загружаем IDT
+    mov rax, [rsp + 8]  ; Получаем указатель на idt_ptr из стека
+    lidt [rax]          ; Загружаем IDT
     ret

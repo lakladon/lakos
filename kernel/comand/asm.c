@@ -488,6 +488,25 @@ static int encode_instruction(const char* line, unsigned char* out) {
         }
         out[len++] = (unsigned char)byte_val;
     }
+    // ECHO - print text (pseudo-instruction)
+    else if (strcmp(instr, "echo") == 0 || strcmp(instr, "print") == 0) {
+        char* text = args;
+        while (*text == ' ') text++;
+        
+        // Remove quotes if present
+        if (text[0] == '"') {
+            text++;
+            int len_text = strlen(text);
+            if (len_text > 0 && text[len_text - 1] == '"') {
+                text[len_text - 1] = '\0';
+            }
+        }
+        
+        // Output the text directly
+        terminal_writestring(text);
+        terminal_writestring("\n");
+        return 0;  // No code generated
+    }
     // Comment or empty line
     else if (instr[0] == ';' || instr[0] == '#' || instr[0] == '\0') {
         return 0;
@@ -534,22 +553,22 @@ static void execute_asm_code() {
         exec_code[i] = code_buffer[i];
     }
     
-    // Execute the code directly using inline assembly
-    int result = 0;
-    int saved_result = 0;
+    // Execute the code directly using inline assembly (64-bit)
+    long result = 0;
+    long saved_result = 0;
     
     __asm__ volatile (
-        "push %%eax\n"         // save EAX
-        "push %%ecx\n"         // save ECX
-        "push %%edx\n"         // save EDX
-        "push %%ebx\n"         // save EBX
-        "mov %1, %%ebx\n"      // code pointer
-        "call *%%ebx\n"        // call the code
-        "mov %%eax, %0\n"      // save result
-        "pop %%ebx\n"          // restore EBX
-        "pop %%edx\n"          // restore EDX
-        "pop %%ecx\n"          // restore ECX
-        "pop %%eax\n"          // restore EAX
+        "push %%rax\n"         // save RAX
+        "push %%rcx\n"         // save RCX
+        "push %%rdx\n"         // save RDX
+        "push %%rbx\n"         // save RBX
+        "mov %1, %%rbx\n"      // code pointer
+        "call *%%rbx\n"        // call the code
+        "mov %%rax, %0\n"      // save result
+        "pop %%rbx\n"          // restore RBX
+        "pop %%rdx\n"          // restore RDX
+        "pop %%rcx\n"          // restore RCX
+        "pop %%rax\n"          // restore RAX
         : "=m"(saved_result)
         : "r"(exec_code)
         : "memory"
