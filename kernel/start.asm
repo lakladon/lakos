@@ -1,12 +1,11 @@
-[BITS 64]
 section .text
 global _start
 extern kmain
 
 _start:
-    mov rsp, 0x200000
-    mov rbp, 0x200000
-    push rbx
-    push rax
+    mov esp, 0x200000
+    mov ebp, 0x200000
+    push ebx
+    push eax
     call kmain
     hlt

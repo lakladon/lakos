@@ -1,22 +1,22 @@
-CC = x86_64-elf-gcc
-# Если x86_64-elf-gcc нет, используем обычный gcc с флагами
+CC = i686-elf-gcc
+# Если i686-elf-gcc нет, используем обычный gcc с флагами
 ifeq (, $(shell which $(CC)))
     CC = gcc
 endif
 
-LD = x86_64-elf-ld
+LD = i686-elf-ld
 ifeq (, $(shell which $(LD)))
     LD = ld
 endif
 
-OBJCOPY = x86_64-elf-objcopy
+OBJCOPY = i686-elf-objcopy
 ifeq (, $(shell which $(OBJCOPY)))
     OBJCOPY = objcopy
 endif
 
 AS = nasm
-CFLAGS = -m64 -ffreestanding -O0 -Wall -Wextra -I. -Ikernel -Ikernel/include -Ikernel/drivers
-LDFLAGS = -m elf_x86_64 -T linker.ld
+CFLAGS = -m32 -ffreestanding -O0 -Wall -Wextra -I. -Ikernel -Ikernel/include -Ikernel/drivers
+LDFLAGS = -m elf_i386 -T linker.ld
 PROJECT_ROOT := $(abspath .)
 OBJ = \
       kernel/start.o \
@@ -40,8 +40,8 @@ OBJ = \
       kernel/gdtflush.o \
       modules.o
 
-USER_CFLAGS = -m64 -ffreestanding -O0 -fno-pie -no-pie
-USER_LDFLAGS = -m elf_x86_64 -e main -Ttext 0x200000 --unresolved-symbols=ignore-all
+USER_CFLAGS = -m32 -ffreestanding -O0 -fno-pie -no-pie
+USER_LDFLAGS = -m elf_i386 -e main -Ttext 0x200000 --unresolved-symbols=ignore-all
 
 USER_BIN = rootfs/bin/calc
 
@@ -126,16 +126,16 @@ iso: lakos.bin modules.tar
 	fi
 
 run: iso
-	qemu-system-x86_64 -cdrom lakos.iso -boot d -m 512M -nographic
+	qemu-system-i386 -cdrom lakos.iso -boot d -m 512M -nographic
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 %.o: %.asm
-	$(AS) -f elf64 $< -o $@
+	$(AS) -f elf32 $< -o $@
 
 modules.o: modules.tar
-	$(OBJCOPY) -I binary -O elf64-x86-64 -B i386:x86-64 $< $@
+	$(OBJCOPY) -I binary -O elf32-i386 -B i386 $< $@
 
 clean:
 	rm -f $(OBJ) modules.o lakos.bin modules.tar lakos.iso
