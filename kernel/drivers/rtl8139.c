@@ -194,26 +194,27 @@ int rtl8139_init(uint16_t io_base) {
         rtl_device.interface.mac[i] = rtl_device.mac[i];
     }
     
-    // Set default IP configuration (will be configured via DHCP or manually)
-    rtl_device.interface.ip[0] = 192;
-    rtl_device.interface.ip[1] = 168;
-    rtl_device.interface.ip[2] = 1;
-    rtl_device.interface.ip[3] = 100;
+    // Set default IP configuration for QEMU user mode networking
+    // QEMU user mode: Gateway 10.0.2.2, DNS 10.0.2.3, Guest IP 10.0.2.15
+    rtl_device.interface.ip[0] = 10;
+    rtl_device.interface.ip[1] = 0;
+    rtl_device.interface.ip[2] = 2;
+    rtl_device.interface.ip[3] = 15;
     
-    rtl_device.interface.gateway[0] = 192;
-    rtl_device.interface.gateway[1] = 168;
-    rtl_device.interface.gateway[2] = 1;
-    rtl_device.interface.gateway[3] = 1;
+    rtl_device.interface.gateway[0] = 10;
+    rtl_device.interface.gateway[1] = 0;
+    rtl_device.interface.gateway[2] = 2;
+    rtl_device.interface.gateway[3] = 2;
     
     rtl_device.interface.subnet[0] = 255;
     rtl_device.interface.subnet[1] = 255;
     rtl_device.interface.subnet[2] = 255;
     rtl_device.interface.subnet[3] = 0;
     
-    rtl_device.interface.dns[0] = 8;
-    rtl_device.interface.dns[1] = 8;
-    rtl_device.interface.dns[2] = 8;
-    rtl_device.interface.dns[3] = 8;
+    rtl_device.interface.dns[0] = 10;
+    rtl_device.interface.dns[1] = 0;
+    rtl_device.interface.dns[2] = 2;
+    rtl_device.interface.dns[3] = 3;
     
     rtl_device.interface.enabled = 1;
     strcpy(rtl_device.interface.name, "eth0");
