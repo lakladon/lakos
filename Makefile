@@ -34,6 +34,8 @@ OBJ = \
       kernel/isr.o \
       kernel/drivers/ata.o \
       kernel/drivers/mouse.o \
+      kernel/drivers/rtl8139.o \
+      kernel/drivers/tcpip.o \
       kernel/idt_flush.o \
       kernel/interrupts.o \
       kernel/idt_load.o \
@@ -127,6 +129,12 @@ iso: lakos.bin modules.tar
 
 run: iso
 	qemu-system-i386 -cdrom lakos.iso -boot d -m 512M -nographic
+
+# Run with network support
+run-net: iso
+	qemu-system-i386 -cdrom lakos.iso -boot d -m 512M -nographic \
+		-netdev user,id=net0,hostfwd=tcp::8080-:80 \
+		-device rtl8139,netdev=net0
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
