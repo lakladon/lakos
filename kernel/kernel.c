@@ -1,3 +1,9 @@
+/*
+ * Lakos OS
+ * Copyright (c) 2026 lakladon
+ * Created: February 23, 2026
+ */
+
 #include "include/multiboot.h"
 #include <stdint.h>
 #include <stddef.h>

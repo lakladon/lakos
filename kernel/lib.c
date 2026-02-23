@@ -1,3 +1,9 @@
+/*
+ * Lakos OS
+ * Copyright (c) 2026 lakladon
+ * Created: February 1, 2026
+ */
+
 #include "include/lib.h"
 
 void strcpy(char* dest, const char* src) {

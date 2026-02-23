@@ -1,3 +1,7 @@
+; Lakos OS
+; Copyright (c) 2026 lakladon
+; Created: January 8, 2026
+
 [BITS 32]
 global gdt_flush     ; Объявляем функцию глобальной для линковщика
 

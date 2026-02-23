@@ -1,3 +1,9 @@
+/*
+ * Lakos OS
+ * Copyright (c) 2026 lakladon
+ * Created: January 11, 2026
+ */
+
 #include "include/crypt.h"
 
 void encrypt_password(const char* pass, const char* key, char* output) {

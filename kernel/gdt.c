@@ -1,3 +1,9 @@
+/*
+ * Lakos OS
+ * Copyright (c) 2026 lakladon
+ * Created: January 8, 2026
+ */
+
 #include "include/gdt.h"
 
 gdt_entry_t gdt_entries[3];

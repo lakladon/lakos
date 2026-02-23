@@ -1,3 +1,9 @@
+/*
+ * Lakos OS
+ * Copyright (c) 2026 lakladon
+ * Created: February 23, 2026
+ */
+
 // TCP/IP Stack for Lakos OS
 // Supports Ethernet, IP, ARP, ICMP, UDP, TCP
 

@@ -1,3 +1,9 @@
+/*
+ * Lakos OS
+ * Copyright (c) 2026 lakladon
+ * Created: February 23, 2026
+ */
+
 #ifndef NET_H
 #define NET_H
 

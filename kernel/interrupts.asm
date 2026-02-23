@@ -1,3 +1,7 @@
+; Lakos OS
+; Copyright (c) 2026 lakladon
+; Created: January 8, 2026
+
 [bits 32]
 extern isr_handler
 global irq1

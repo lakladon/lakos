@@ -1,3 +1,9 @@
+/*
+ * Lakos OS
+ * Copyright (c) 2026 lakladon
+ * Created: January 8, 2026
+ */
+
 #include <stdint.h>
 #include <io.h>
 

@@ -1,3 +1,9 @@
+/*
+ * Lakos OS
+ * Copyright (c) 2026 lakladon
+ * Created: February 23, 2026
+ */
+
 // RTL8139 Network Driver for Lakos OS
 // Supports QEMU's rtl8139 emulation
 
