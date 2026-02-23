@@ -219,6 +219,7 @@ static void reboot();
 #include "comand/calc.c"
 #include "comand/asm.c"
 #include "comand/net.c"
+
 void init_kernel_commands() {
     // If tar archive is available, get directories from it
     if (tar_archive) {
