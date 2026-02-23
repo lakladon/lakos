@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "io.h"
 #include "net.h"
+#include "../include/lib.h"
 
 extern void terminal_writestring(const char*);
 extern void* kmalloc(uint32_t size);

@@ -163,6 +163,18 @@ uint8_t* arp_lookup(const uint8_t* ip) {
     return 0;
 }
 
+// Get ARP cache for display
+int arp_get_cache(arp_entry_t* entries, int max_entries) {
+    int count = 0;
+    for (int i = 0; i < ARP_CACHE_SIZE && count < max_entries; i++) {
+        if (arp_cache[i].valid) {
+            entries[count] = arp_cache[i];
+            count++;
+        }
+    }
+    return count;
+}
+
 // Add entry to ARP cache
 void arp_add(const uint8_t* ip, const uint8_t* mac) {
     for (int i = 0; i < ARP_CACHE_SIZE; i++) {

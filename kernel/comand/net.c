@@ -21,9 +21,11 @@ extern int parse_ip(const char* str, uint8_t* ip);
 extern void format_ip(const uint8_t* ip, char* buf);
 extern void format_mac(const uint8_t* mac, char* buf);
 
-// Common PCI ports for RTL8139
+// Common PCI ports for RTL8139 in QEMU
 static const uint16_t rtl8139_ports[] = {
     0xC000, 0xC100, 0xC200, 0xC300,
+    0xC400, 0xC500, 0xC600, 0xC700,
+    0xC800, 0xC900, 0xCA00, 0xCB00,
     0xD000, 0xD100, 0xD200, 0xD300,
     0xE000, 0xE100, 0xE200, 0xE300,
     0
@@ -183,6 +185,11 @@ void cmd_ifconfig(const char* args) {
     terminal_writestring("\n");
 }
 
+// External ARP cache access
+extern uint8_t* arp_lookup(const uint8_t* ip);
+extern void arp_add(const uint8_t* ip, const uint8_t* mac);
+extern void send_arp_request(const uint8_t* target_ip);
+
 // ping command - send ICMP echo request
 void cmd_ping(const char* args) {
     if (!args || !*args) {
@@ -214,25 +221,41 @@ void cmd_ping(const char* args) {
     terminal_writestring(buf);
     terminal_writestring("\n");
     
+    // Check if we have MAC in ARP cache
+    uint8_t* mac = arp_lookup(dest_ip);
+    if (!mac) {
+        terminal_writestring("Sending ARP request...\n");
+        send_arp_request(dest_ip);
+        
+        // Wait for ARP response
+        for (int i = 0; i < 500000; i++) {
+            net_poll();
+            mac = arp_lookup(dest_ip);
+            if (mac) break;
+        }
+        
+        if (!mac) {
+            terminal_writestring("No ARP response received\n");
+            terminal_writestring("Check if target is reachable\n");
+            return;
+        }
+        
+        terminal_writestring("ARP resolved\n");
+    }
+    
     // Send ping
     int result = net_ping(dest_ip);
     
     if (result) {
-        terminal_writestring("Ping sent successfully\n");
+        terminal_writestring("Ping sent, waiting for reply...\n");
         
-        // Wait for response (poll for a while)
-        terminal_writestring("Waiting for response...\n");
-        for (int i = 0; i < 500000; i++) {
+        // Wait for ICMP reply
+        for (int i = 0; i < 1000000; i++) {
             net_poll();
         }
         terminal_writestring("Done\n");
     } else {
-        terminal_writestring("Failed to send ping (ARP request sent, try again)\n");
-        
-        // Poll for ARP response
-        for (int i = 0; i < 100000; i++) {
-            net_poll();
-        }
+        terminal_writestring("Failed to send ping\n");
     }
 }
 

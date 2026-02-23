@@ -608,6 +608,18 @@ void kernel_execute_command(const char* input) {
         cmd_calc(args);
     } else if (strcmp(cmd, "asm") == 0) {
         cmd_asm(args);
+    } else if (strcmp(cmd, "ifconfig") == 0) {
+        cmd_ifconfig(args);
+    } else if (strcmp(cmd, "ping") == 0) {
+        cmd_ping(args);
+    } else if (strcmp(cmd, "wget") == 0) {
+        cmd_wget(args);
+    } else if (strcmp(cmd, "netstat") == 0) {
+        cmd_netstat(args);
+    } else if (strcmp(cmd, "arp") == 0) {
+        cmd_arp(args);
+    } else if (strcmp(cmd, "nethelp") == 0) {
+        cmd_nethelp(args);
     } else {
         if (is_file_in_path(cmd, pathbin)) {
             execute_binary(cmd);
