@@ -1,3 +1,9 @@
+/*
+ * Lakos OS
+ * Copyright (c) 2026 lakladon
+ * Created: January 8, 2026
+ */
+
 #ifndef IDT_H
 #define IDT_H
 

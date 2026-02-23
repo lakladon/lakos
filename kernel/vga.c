@@ -1,3 +1,9 @@
+/*
+ * Lakos OS
+ * Copyright (c) 2026 lakladon
+ * Created: January 10, 2026
+ */
+
 #include <stdint.h>
 
 int abs(int x) { return x < 0 ? -x : x; }

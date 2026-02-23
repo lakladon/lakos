@@ -1,3 +1,9 @@
+/*
+ * Lakos OS
+ * Copyright (c) 2026 lakladon
+ * Created: January 9, 2026
+ */
+
 #ifndef IO_H
 #define IO_H
 

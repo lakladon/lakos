@@ -1,3 +1,7 @@
+; Lakos OS
+; Copyright (c) 2026 lakladon
+; Created: January 8, 2026
+
 ; Константы Multiboot
 MODULEALIGN equ  1<<0                   ; выравнивать модули по страницам
 MEMINFO     equ  1<<1                   ; предоставлять карту памяти
