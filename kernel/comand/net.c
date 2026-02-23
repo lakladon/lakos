@@ -190,6 +190,15 @@ extern uint8_t* arp_lookup(const uint8_t* ip);
 extern void arp_add(const uint8_t* ip, const uint8_t* mac);
 extern void send_arp_request(const uint8_t* target_ip);
 
+// ARP entry structure (must match tcpip.c)
+typedef struct {
+    uint8_t ip[4];
+    uint8_t mac[6];
+    int valid;
+} arp_entry_t;
+
+extern int arp_get_cache(arp_entry_t* entries, int max_entries);
+
 // ping command - send ICMP echo request
 void cmd_ping(const char* args) {
     if (!args || !*args) {
@@ -359,9 +368,22 @@ void cmd_arp(const char* args) {
     terminal_writestring("IP Address      MAC Address\n");
     terminal_writestring("------------------------------\n");
     
-    // This would show ARP cache entries
-    // For now, just show header
-    terminal_writestring("(No ARP entries cached)\n");
+    arp_entry_t entries[16];
+    int count = arp_get_cache(entries, 16);
+    
+    if (count == 0) {
+        terminal_writestring("(No ARP entries cached)\n");
+    } else {
+        char buf[32];
+        for (int i = 0; i < count; i++) {
+            format_ip(entries[i].ip, buf);
+            terminal_writestring(buf);
+            terminal_writestring("  ");
+            format_mac(entries[i].mac, buf);
+            terminal_writestring(buf);
+            terminal_writestring("\n");
+        }
+    }
 }
 
 // Help for network commands
@@ -379,5 +401,15 @@ void cmd_nethelp(const char* args) {
     terminal_writestring("arp               - Show ARP cache\n");
     terminal_writestring("\n");
     terminal_writestring("QEMU Network Setup:\n");
-    terminal_writestring("qemu-system-i386 -cdrom lakos.iso -netdev user,id=net0 -device rtl8139,netdev=net0\n");
+    terminal_writestring("make run-net      - Run with network\n");
+    terminal_writestring("\n");
+    terminal_writestring("QEMU User Network:\n");
+    terminal_writestring("  Gateway: 10.0.2.2\n");
+    terminal_writestring("  DNS: 10.0.2.3\n");
+    terminal_writestring("  Guest IP: 10.0.2.15 (DHCP)\n");
+    terminal_writestring("\n");
+    terminal_writestring("Example:\n");
+    terminal_writestring("  ifconfig ip 10.0.2.15\n");
+    terminal_writestring("  ifconfig gw 10.0.2.2\n");
+    terminal_writestring("  ping 10.0.2.2\n");
 }
