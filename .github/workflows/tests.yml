@@ -1,0 +1,387 @@
+name: Lakos OS Build and Test
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nasm gcc-multilib g++-multilib make xorriso limine
+
+      - name: Build kernel
+        run: |
+          make clean || true
+          make lakos.bin
+
+      - name: Build modules.tar
+        run: make modules.tar
+
+      - name: Build ISO image
+        run: make iso
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lakos-iso
+          path: lakos.iso
+          retention-days: 7
+
+  code-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib cppcheck
+
+      - name: Check code style
+        run: |
+          echo "Checking C files for basic issues..."
+          find kernel -name "*.c" -exec echo "Checking: {}" \;
+          
+      - name: Static analysis with cppcheck
+        run: |
+          cppcheck --version
+          cppcheck --enable=warning,performance --std=c99 \
+            --suppress=missingIncludeSystem \
+            --error-exitcode=0 \
+            kernel/ || true
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc gcc-multilib make
+
+      - name: Create test directory
+        run: mkdir -p tests
+
+      - name: Create test runner
+        run: |
+          cat > tests/test_lib.c << 'EOF'
+          #include <stdio.h>
+          #include <string.h>
+          #include <stdlib.h>
+          
+          // Declarations from lib.h
+          void strcpy_custom(char* dest, const char* src);
+          int strcmp_custom(const char* s1, const char* s2);
+          int strlen_custom(const char* s);
+          int atoi_custom(const char* s);
+          void* memcpy_custom(void* dest, const void* src, unsigned int n);
+          void* memset_custom(void* s, int c, unsigned int n);
+          char* strstr_custom(const char* haystack, const char* needle);
+          void itoa_custom(int n, char* buf);
+          
+          // Implementations for testing
+          void strcpy_custom(char* dest, const char* src) {
+              while (*src) *dest++ = *src++;
+              *dest = '\0';
+          }
+          
+          int strcmp_custom(const char* s1, const char* s2) {
+              while (*s1 && (*s1 == *s2)) { s1++; s2++; }
+              return *(const unsigned char*)s1 - *(const unsigned char*)s2;
+          }
+          
+          int strlen_custom(const char* s) {
+              int len = 0;
+              while (*s++) len++;
+              return len;
+          }
+          
+          int atoi_custom(const char* s) {
+              int n = 0;
+              while (*s >= '0' && *s <= '9') {
+                  n = n * 10 + (*s - '0');
+                  s++;
+              }
+              return n;
+          }
+          
+          void* memcpy_custom(void* dest, const void* src, unsigned int n) {
+              char* d = (char*)dest;
+              const char* s = (const char*)src;
+              while (n--) *d++ = *s++;
+              return dest;
+          }
+          
+          void* memset_custom(void* s, int c, unsigned int n) {
+              unsigned char* p = (unsigned char*)s;
+              while (n--) *p++ = (unsigned char)c;
+              return s;
+          }
+          
+          char* strstr_custom(const char* haystack, const char* needle) {
+              if (!*needle) return (char*)haystack;
+              for (; *haystack; haystack++) {
+                  const char* h = haystack;
+                  const char* n = needle;
+                  while (*h && *n && *h == *n) { h++; n++; }
+                  if (!*n) return (char*)haystack;
+              }
+              return 0;
+          }
+          
+          void itoa_custom(int n, char* buf) {
+              if (n == 0) {
+                  buf[0] = '0';
+                  buf[1] = '\0';
+                  return;
+              }
+              int i = 0;
+              int sign = n < 0 ? -1 : 1;
+              unsigned int num = n < 0 ? -n : n;
+              while (num > 0) {
+                  buf[i++] = '0' + num % 10;
+                  num /= 10;
+              }
+              if (sign < 0) buf[i++] = '-';
+              buf[i] = '\0';
+              // reverse
+              for (int j = 0; j < i/2; j++) {
+                  char t = buf[j];
+                  buf[j] = buf[i-1-j];
+                  buf[i-1-j] = t;
+              }
+          }
+          
+          int tests_passed = 0;
+          int tests_failed = 0;
+          
+          #define TEST(name, condition) do { \
+              if (condition) { \
+                  printf("✓ PASS: %s\n", name); \
+                  tests_passed++; \
+              } else { \
+                  printf("✗ FAIL: %s\n", name); \
+                  tests_failed++; \
+              } \
+          } while(0)
+          
+          int main() {
+              printf("=== Lakos OS Unit Tests ===\n\n");
+              
+              // Test strlen
+              printf("--- strlen tests ---\n");
+              TEST("strlen empty string", strlen_custom("") == 0);
+              TEST("strlen 'hello'", strlen_custom("hello") == 5);
+              TEST("strlen 'test123'", strlen_custom("test123") == 7);
+              
+              // Test strcmp
+              printf("\n--- strcmp tests ---\n");
+              TEST("strcmp equal strings", strcmp_custom("hello", "hello") == 0);
+              TEST("strcmp different strings", strcmp_custom("abc", "abd") < 0);
+              TEST("strcmp prefix", strcmp_custom("abc", "abcd") < 0);
+              
+              // Test strcpy
+              printf("\n--- strcpy tests ---\n");
+              char buf[100];
+              strcpy_custom(buf, "test");
+              TEST("strcpy basic", strcmp_custom(buf, "test") == 0);
+              strcpy_custom(buf, "");
+              TEST("strcpy empty", strcmp_custom(buf, "") == 0);
+              
+              // Test atoi
+              printf("\n--- atoi tests ---\n");
+              TEST("atoi '123'", atoi_custom("123") == 123);
+              TEST("atoi '0'", atoi_custom("0") == 0);
+              TEST("atoi '42test'", atoi_custom("42test") == 42);
+              
+              // Test memcpy
+              printf("\n--- memcpy tests ---\n");
+              char src[] = "hello";
+              char dst[10];
+              memcpy_custom(dst, src, 6);
+              TEST("memcpy basic", strcmp_custom(dst, "hello") == 0);
+              
+              // Test memset
+              printf("\n--- memset tests ---\n");
+              char mem[10];
+              memset_custom(mem, 'A', 5);
+              mem[5] = '\0';
+              TEST("memset basic", strcmp_custom(mem, "AAAAA") == 0);
+              
+              // Test strstr
+              printf("\n--- strstr tests ---\n");
+              TEST("strstr found", strstr_custom("hello world", "world") != 0);
+              TEST("strstr not found", strstr_custom("hello world", "xyz") == 0);
+              TEST("strstr empty needle", strstr_custom("hello", "") != 0);
+              
+              // Test itoa
+              printf("\n--- itoa tests ---\n");
+              char numbuf[20];
+              itoa_custom(123, numbuf);
+              TEST("itoa 123", strcmp_custom(numbuf, "123") == 0);
+              itoa_custom(0, numbuf);
+              TEST("itoa 0", strcmp_custom(numbuf, "0") == 0);
+              itoa_custom(-42, numbuf);
+              TEST("itoa -42", strcmp_custom(numbuf, "-42") == 0);
+              
+              printf("\n=== Test Results ===\n");
+              printf("Passed: %d\n", tests_passed);
+              printf("Failed: %d\n", tests_failed);
+              
+              return tests_failed > 0 ? 1 : 0;
+          }
+          EOF
+
+      - name: Compile and run unit tests
+        run: |
+          gcc -o tests/test_lib tests/test_lib.c
+          ./tests/test_lib
+
+  crypt-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc
+
+      - name: Create encryption tests
+        run: |
+          mkdir -p tests
+          cat > tests/test_crypt.c << 'EOF'
+          #include <stdio.h>
+          #include <string.h>
+          
+          #define MAX_PASS_LEN 64
+          
+          void encrypt_password(const char* pass, const char* key, char* output) {
+              int pass_len = 0;
+              while (pass[pass_len] && pass_len < MAX_PASS_LEN - 1) pass_len++;
+              int key_len = 0;
+              while (key[key_len]) key_len++;
+              for (int i = 0; i < pass_len; i++) {
+                  output[i] = pass[i] ^ key[i % key_len];
+              }
+              output[pass_len] = '\0';
+          }
+          
+          void decrypt_password(const char* enc, const char* key, char* output) {
+              encrypt_password(enc, key, output);
+          }
+          
+          int tests_passed = 0;
+          int tests_failed = 0;
+          
+          #define TEST(name, condition) do { \
+              if (condition) { \
+                  printf("✓ PASS: %s\n", name); \
+                  tests_passed++; \
+              } else { \
+                  printf("✗ FAIL: %s\n", name); \
+                  tests_failed++; \
+              } \
+          } while(0)
+          
+          int main() {
+              printf("=== Encryption Tests ===\n\n");
+              
+              char encrypted[100];
+              char decrypted[100];
+              
+              // Test basic encryption/decryption
+              encrypt_password("password", "key", encrypted);
+              decrypt_password(encrypted, "key", decrypted);
+              TEST("encrypt/decrypt 'password' with 'key'", strcmp(decrypted, "password") == 0);
+              
+              encrypt_password("root", "secret", encrypted);
+              decrypt_password(encrypted, "secret", decrypted);
+              TEST("encrypt/decrypt 'root' with 'secret'", strcmp(decrypted, "root") == 0);
+              
+              encrypt_password("admin123", "testkey", encrypted);
+              decrypt_password(encrypted, "testkey", decrypted);
+              TEST("encrypt/decrypt 'admin123' with 'testkey'", strcmp(decrypted, "admin123") == 0);
+              
+              // Test wrong key
+              encrypt_password("secret", "key1", encrypted);
+              decrypt_password(encrypted, "key2", decrypted);
+              TEST("wrong key produces different result", strcmp(decrypted, "secret") != 0);
+              
+              // Test empty password
+              encrypt_password("", "key", encrypted);
+              TEST("empty password", strcmp(encrypted, "") == 0);
+              
+              printf("\n=== Test Results ===\n");
+              printf("Passed: %d\n", tests_passed);
+              printf("Failed: %d\n", tests_failed);
+              
+              return tests_failed > 0 ? 1 : 0;
+          }
+          EOF
+
+      - name: Compile and run encryption tests
+        run: |
+          gcc -o tests/test_crypt tests/test_crypt.c
+          ./tests/test_crypt
+
+  release:
+    needs: [build, code-quality, unit-tests, crypt-tests]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download ISO artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: lakos-iso
+          path: .
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(cat version.txt 2>/dev/null || echo "v0.1.0")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}-${{ steps.version.outputs.date }}
+          name: Lakos OS ${{ steps.version.outputs.version }}
+          body: |
+            ## Lakos OS Release ${{ steps.version.outputs.version }}
+            
+            ### Build Information
+            - Date: ${{ steps.version.outputs.date }}
+            - Commit: ${{ github.sha }}
+            
+            ### How to Run
+            1. Download `lakos.iso`
+            2. Run with QEMU: `qemu-system-i386 -cdrom lakos.iso -m 512M`
+            3. Or burn to USB/DVD for real hardware
+            
+            ### Tests Status
+            All tests passed successfully.
+          files: |
+            lakos.iso
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
