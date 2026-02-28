@@ -62,3 +62,5 @@ act_runner-0.2.13-linux-amd64
 isodir/
 lakos.iso
 lakos.bin
+config.yaml
+act_runner
