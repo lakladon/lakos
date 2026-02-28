@@ -301,16 +301,38 @@ int rtl8139_send(const uint8_t* data, uint16_t length) {
 int rtl8139_receive(net_packet_t* packet) {
     if (!rtl_device.initialized) return 0;
     
-    // Check ISR for received packets
+    // Read ISR and CR for debugging
     uint16_t isr = rtl_read16(RTL_REG_ISR);
+    uint8_t cr = rtl_read8(RTL_REG_CR);
+    
+    // Always show ISR state for debugging
+    static int debug_count = 0;
+    if (debug_count < 5) {
+        terminal_writestring("[RTL8139] RX debug: ISR=0x");
+        char buf[8];
+        buf[0] = "0123456789ABCDEF"[(isr >> 12) & 0xF];
+        buf[1] = "0123456789ABCDEF"[(isr >> 8) & 0xF];
+        buf[2] = "0123456789ABCDEF"[(isr >> 4) & 0xF];
+        buf[3] = "0123456789ABCDEF"[isr & 0xF];
+        buf[4] = ' ';
+        buf[5] = 'C';
+        buf[6] = 'R';
+        buf[7] = '=';
+        buf[8] = "0123456789ABCDEF"[(cr >> 4) & 0xF];
+        buf[9] = "0123456789ABCDEF"[cr & 0xF];
+        buf[10] = '\0';
+        terminal_writestring(buf);
+        terminal_writestring("\n");
+        debug_count++;
+    }
+    
     if (isr & ISR_ROK) {
-        terminal_writestring("[RTL8139] RX: ISR indicates packet ready\n");
+        terminal_writestring("[RTL8139] RX: ISR indicates packet ready!\n");
         // Clear the interrupt
         rtl_write16(RTL_REG_ISR, ISR_ROK);
     }
     
     // Check if buffer is empty
-    uint8_t cr = rtl_read8(RTL_REG_CR);
     if (cr & CR_BUFE) {
         return 0;
     }
