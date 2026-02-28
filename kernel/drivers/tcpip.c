@@ -127,6 +127,10 @@ static tcp_connection_t tcp_connections[MAX_CONNECTIONS];
 #define TCP_STATE_SYN_SENT   1
 #define TCP_STATE_ESTABLISHED 2
 
+// Forward declarations
+void format_ip(const uint8_t* ip, char* buf);
+void format_mac(const uint8_t* mac, char* buf);
+
 // Calculate checksum
 uint16_t net_checksum(const uint8_t* data, int length) {
     uint32_t sum = 0;
@@ -202,7 +206,10 @@ void arp_add(const uint8_t* ip, const uint8_t* mac) {
 // Send ARP request
 void send_arp_request(const uint8_t* target_ip) {
     net_interface_t* iface = rtl8139_get_interface();
-    if (!iface) return;
+    if (!iface) {
+        terminal_writestring("[ARP] ERROR: No interface\n");
+        return;
+    }
     
     uint8_t packet[64];
     eth_header_t* eth = (eth_header_t*)packet;
@@ -222,7 +229,28 @@ void send_arp_request(const uint8_t* target_ip) {
     for (int i = 0; i < 6; i++) arp->target_mac[i] = 0;
     ip_copy(arp->target_ip, target_ip);
     
-    rtl8139_send(packet, sizeof(eth_header_t) + sizeof(arp_header_t));
+    // Debug output
+    char buf[32];
+    terminal_writestring("[ARP] Sending request for ");
+    format_ip(target_ip, buf);
+    terminal_writestring(buf);
+    terminal_writestring(" from ");
+    format_ip(iface->ip, buf);
+    terminal_writestring(buf);
+    terminal_writestring("\n");
+    
+    terminal_writestring("[ARP] Our MAC: ");
+    format_mac(iface->mac, buf);
+    terminal_writestring(buf);
+    terminal_writestring("\n");
+    
+    int sent = rtl8139_send(packet, sizeof(eth_header_t) + sizeof(arp_header_t));
+    terminal_writestring("[ARP] Send result: ");
+    buf[0] = '0' + (sent / 10);
+    buf[1] = '0' + (sent % 10);
+    buf[2] = '\0';
+    terminal_writestring(buf);
+    terminal_writestring(" bytes\n");
 }
 
 // Send ARP reply
@@ -253,19 +281,61 @@ void send_arp_reply(const uint8_t* target_ip, const uint8_t* target_mac) {
 
 // Handle ARP packet
 static void handle_arp(const uint8_t* data, int length) {
-    if (length < sizeof(arp_header_t)) return;
+    if (length < sizeof(arp_header_t)) {
+        terminal_writestring("[ARP] Packet too short\n");
+        return;
+    }
     
     arp_header_t* arp = (arp_header_t*)data;
     net_interface_t* iface = rtl8139_get_interface();
     if (!iface) return;
     
+    char buf[32];
+    terminal_writestring("[ARP] Received packet, operation: ");
+    uint16_t op = (arp->operation >> 8) | ((arp->operation & 0xFF) << 8);
+    buf[0] = '0' + (op / 100);
+    buf[1] = '0' + ((op / 10) % 10);
+    buf[2] = '0' + (op % 10);
+    buf[3] = '\0';
+    terminal_writestring(buf);
+    terminal_writestring("\n");
+    
+    terminal_writestring("[ARP] Sender IP: ");
+    format_ip(arp->sender_ip, buf);
+    terminal_writestring(buf);
+    terminal_writestring(" MAC: ");
+    format_mac(arp->sender_mac, buf);
+    terminal_writestring(buf);
+    terminal_writestring("\n");
+    
+    terminal_writestring("[ARP] Target IP: ");
+    format_ip(arp->target_ip, buf);
+    terminal_writestring(buf);
+    terminal_writestring(" (our IP: ");
+    format_ip(iface->ip, buf);
+    terminal_writestring(buf);
+    terminal_writestring(")\n");
+    
     // Reply to requests for our IP
     if (arp->operation == 0x0100 && ip_equal(arp->target_ip, iface->ip)) {
+        terminal_writestring("[ARP] Request for us, sending reply\n");
         send_arp_reply(arp->sender_ip, arp->sender_mac);
         arp_add(arp->sender_ip, arp->sender_mac);
     } else if (arp->operation == 0x0200) {
+        terminal_writestring("[ARP] Reply received, adding to cache\n");
         arp_add(arp->sender_ip, arp->sender_mac);
     }
+}
+
+// Check if IP is in same subnet
+static int is_same_subnet(const uint8_t* ip, net_interface_t* iface) {
+    // Compare network portion using subnet mask
+    for (int i = 0; i < 4; i++) {
+        if ((ip[i] & iface->subnet[i]) != (iface->ip[i] & iface->subnet[i])) {
+            return 0;
+        }
+    }
+    return 1;
 }
 
 // Send IP packet
@@ -273,9 +343,17 @@ int send_ip_packet(const uint8_t* dest_ip, uint8_t protocol, const uint8_t* data
     net_interface_t* iface = rtl8139_get_interface();
     if (!iface) return 0;
     
-    uint8_t* dest_mac = arp_lookup(dest_ip);
+    // Determine which MAC to use: direct or gateway
+    const uint8_t* target_ip = dest_ip;
+    
+    // If destination is not in our subnet, use gateway
+    if (!is_same_subnet(dest_ip, iface)) {
+        target_ip = iface->gateway;
+    }
+    
+    uint8_t* dest_mac = arp_lookup(target_ip);
     if (!dest_mac) {
-        send_arp_request(dest_ip);
+        send_arp_request(target_ip);
         return 0;  // Need to wait for ARP
     }
     
@@ -436,13 +514,53 @@ void net_init() {
         tcp_connections[i].active = 0;
     }
     
+    // Add static ARP entry for QEMU gateway
+    // QEMU user-mode gateway (10.0.2.2) typically has MAC 52:54:00:12:34:02
+    net_interface_t* iface = rtl8139_get_interface();
+    if (iface && iface->gateway[0] == 10 && iface->gateway[1] == 0 && 
+        iface->gateway[2] == 2 && iface->gateway[3] == 2) {
+        uint8_t gw_mac[6] = {0x52, 0x54, 0x00, 0x12, 0x34, 0x02};
+        arp_add(iface->gateway, gw_mac);
+        terminal_writestring("[NET] Added static ARP for QEMU gateway 10.0.2.2\n");
+    }
+    
     terminal_writestring("TCP/IP stack initialized\n");
 }
 
 // Poll for packets
 void net_poll() {
     net_packet_t packet;
-    if (rtl8139_receive(&packet) > 0) {
+    
+    // Debug: show we're polling
+    static int poll_debug_count = 0;
+    if (poll_debug_count < 3) {
+        terminal_writestring("[NET] Polling...\n");
+        poll_debug_count++;
+    }
+    
+    int received = rtl8139_receive(&packet);
+    if (received > 0) {
+        char buf[16];
+        terminal_writestring("[NET] Received packet: ");
+        buf[0] = '0' + (received / 1000);
+        buf[1] = '0' + ((received / 100) % 10);
+        buf[2] = '0' + ((received / 10) % 10);
+        buf[3] = '0' + (received % 10);
+        buf[4] = '\0';
+        terminal_writestring(buf);
+        terminal_writestring(" bytes\n");
+        
+        // Debug: show first few bytes
+        terminal_writestring("[NET] Data: ");
+        for (int i = 0; i < 16 && i < received; i++) {
+            buf[0] = "0123456789ABCDEF"[(packet.data[i] >> 4) & 0xF];
+            buf[1] = "0123456789ABCDEF"[packet.data[i] & 0xF];
+            buf[2] = ' ';
+            buf[3] = '\0';
+            terminal_writestring(buf);
+        }
+        terminal_writestring("\n");
+        
         net_process_packet(&packet);
     }
 }
