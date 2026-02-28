@@ -209,6 +209,11 @@ static int is_same_subnet_local(const uint8_t* ip, net_interface_t* iface) {
     return 1;
 }
 
+// Compare IP addresses (local copy since tcpip.c has static version)
+static int ip_equal_local(const uint8_t* a, const uint8_t* b) {
+    return a[0] == b[0] && a[1] == b[1] && a[2] == b[2] && a[3] == b[3];
+}
+
 // ping command - send ICMP echo request
 void cmd_ping(const char* args) {
     if (!args || !*args) {
@@ -243,7 +248,7 @@ void cmd_ping(const char* args) {
     terminal_writestring("\n");
     
     // Check if pinging ourselves
-    if (ip_equal(dest_ip, iface->ip)) {
+    if (ip_equal_local(dest_ip, iface->ip)) {
         terminal_writestring("Local ping - packets stay on host\n");
     }
     
