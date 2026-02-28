@@ -14,6 +14,12 @@ static inline void outb(uint16_t port, uint8_t val) {
     __asm__ volatile("outb %0, %1" : : "a"(val), "Nd"(port));
 }
 
+static inline uint8_t inb(uint16_t port) {
+    uint8_t ret;
+    __asm__ volatile("inb %1, %0" : "=a"(ret) : "Nd"(port));
+    return ret;
+}
+
 void kmain(multiboot_info_t* mb_info, uint32_t magic);
 
 // Multiboot header
@@ -33,6 +39,50 @@ uint16_t* video_memory = (uint16_t*)VIDEO_MEMORY;
 int term_col = 0;
 int term_row = 0;
 uint8_t current_attr = 0x0F; // white on black
+int cursor_visible = 1;
+
+// Update hardware cursor position
+void terminal_update_cursor() {
+    uint16_t pos = term_row * VGA_WIDTH + term_col;
+    outb(0x3D4, 0x0F); // Cursor location low
+    outb(0x3D5, (uint8_t)(pos & 0xFF));
+    outb(0x3D4, 0x0E); // Cursor location high
+    outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
+}
+
+// Enable blinking cursor
+void terminal_enable_cursor() {
+    outb(0x3D4, 0x0A); // Cursor start
+    outb(0x3D5, (inb(0x3D5) & 0xC0) | 0); // Start at scanline 0
+    outb(0x3D4, 0x0B); // Cursor end
+    outb(0x3D5, (inb(0x3D5) & 0xE0) | 15); // End at scanline 15
+    cursor_visible = 1;
+}
+
+// Disable cursor
+void terminal_disable_cursor() {
+    outb(0x3D4, 0x0A);
+    outb(0x3D5, 0x20); // Disable cursor
+    cursor_visible = 0;
+}
+
+// Move cursor to specific column (keeping current row)
+void terminal_move_cursor(int col) {
+    if (col >= 0 && col < VGA_WIDTH) {
+        term_col = col;
+        terminal_update_cursor();
+    }
+}
+
+// Get current cursor column
+int terminal_get_cursor_col() {
+    return term_col;
+}
+
+// Get current cursor row
+int terminal_get_cursor_row() {
+    return term_row;
+}
 
 // Optional terminal output capture (used for shell pipes).
 static int term_capture_enabled = 0;
@@ -69,6 +119,8 @@ void terminal_initialize() {
     for (int i = 0; i < VGA_WIDTH * VGA_HEIGHT; i++) {
         video_memory[i] = (uint16_t)' ' | (uint16_t)0x0F << 8;
     }
+    terminal_enable_cursor();
+    terminal_update_cursor();
 }
 
 void terminal_putchar(char c) {
@@ -109,6 +161,23 @@ void terminal_putchar(char c) {
         }
         term_row = VGA_HEIGHT - 1;
     }
+    
+    terminal_update_cursor();
+}
+
+// Write a character at specific position without moving cursor
+void terminal_putchar_at(int col, int row, char c) {
+    if (row >= 0 && row < VGA_HEIGHT && col >= 0 && col < VGA_WIDTH) {
+        video_memory[row * VGA_WIDTH + col] = (uint16_t)c | (uint16_t)current_attr << 8;
+    }
+}
+
+// Get character at specific position
+char terminal_getchar_at(int col, int row) {
+    if (row >= 0 && row < VGA_HEIGHT && col >= 0 && col < VGA_WIDTH) {
+        return (char)(video_memory[row * VGA_WIDTH + col] & 0xFF);
+    }
+    return ' ';
 }
 
 void terminal_writestring(const char* s) {
