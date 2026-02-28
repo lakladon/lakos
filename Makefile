@@ -132,7 +132,7 @@ run: iso
 
 # Run with network support
 run-net: iso
-	qemu-system-i386 -cdrom lakos.iso -boot d -m 512M -nographic \
+	qemu-system-i386 -cdrom lakos.iso -boot d -m 512M  \
 		-netdev user,id=net0,hostfwd=tcp::8080-:80 \
 		-device rtl8139,netdev=net0
 

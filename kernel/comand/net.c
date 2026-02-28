@@ -199,11 +199,21 @@ typedef struct {
 
 extern int arp_get_cache(arp_entry_t* entries, int max_entries);
 
+// Check if IP is in same subnet
+static int is_same_subnet_local(const uint8_t* ip, net_interface_t* iface) {
+    for (int i = 0; i < 4; i++) {
+        if ((ip[i] & iface->subnet[i]) != (iface->ip[i] & iface->subnet[i])) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 // ping command - send ICMP echo request
 void cmd_ping(const char* args) {
     if (!args || !*args) {
         terminal_writestring("Usage: ping <ip address>\n");
-        terminal_writestring("Example: ping 192.168.1.1\n");
+        terminal_writestring("Example: ping 10.0.2.2\n");
         return;
     }
     
@@ -224,24 +234,64 @@ void cmd_ping(const char* args) {
         return;
     }
     
+    net_interface_t* iface = net_get_interface();
+    
     char buf[32];
     terminal_writestring("PING ");
     format_ip(dest_ip, buf);
     terminal_writestring(buf);
     terminal_writestring("\n");
     
+    // Determine which IP we need ARP for (gateway or direct)
+    const uint8_t* arp_target_ip = dest_ip;
+    if (!is_same_subnet_local(dest_ip, iface)) {
+        arp_target_ip = iface->gateway;
+        terminal_writestring("Using gateway ");
+        format_ip(iface->gateway, buf);
+        terminal_writestring(buf);
+        terminal_writestring("\n");
+    }
+    
     // Check if we have MAC in ARP cache
-    uint8_t* mac = arp_lookup(dest_ip);
+    uint8_t* mac = arp_lookup(arp_target_ip);
     if (!mac) {
-        terminal_writestring("Sending ARP request...\n");
-        send_arp_request(dest_ip);
+        terminal_writestring("Sending ARP request for ");
+        format_ip(arp_target_ip, buf);
+        terminal_writestring(buf);
+        terminal_writestring("...\n");
+        send_arp_request(arp_target_ip);
         
         // Wait for ARP response
+        terminal_writestring("[PING] Polling for ARP response...\n");
+        int poll_count = 0;
         for (int i = 0; i < 500000; i++) {
             net_poll();
-            mac = arp_lookup(dest_ip);
-            if (mac) break;
+            poll_count++;
+            mac = arp_lookup(arp_target_ip);
+            if (mac) {
+                terminal_writestring("[PING] ARP resolved after ");
+                char num[16];
+                num[0] = '0' + (poll_count / 10000);
+                num[1] = '0' + ((poll_count / 1000) % 10);
+                num[2] = '0' + ((poll_count / 100) % 10);
+                num[3] = '0' + ((poll_count / 10) % 10);
+                num[4] = '0' + (poll_count % 10);
+                num[5] = '\0';
+                terminal_writestring(num);
+                terminal_writestring(" polls\n");
+                break;
+            }
         }
+        terminal_writestring("[PING] Total polls: ");
+        char num[16];
+        num[0] = '0' + (poll_count / 10000);
+        num[1] = '0' + ((poll_count / 1000) % 10);
+        num[2] = '0' + ((poll_count / 100) % 10);
+        num[3] = '0' + ((poll_count / 10) % 10);
+        num[4] = '0' + (poll_count % 10);
+        num[5] = '\0';
+        terminal_writestring(num);
+        terminal_writestring("\n");
         
         if (!mac) {
             terminal_writestring("No ARP response received\n");

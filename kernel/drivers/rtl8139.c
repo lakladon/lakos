@@ -189,8 +189,10 @@ int rtl8139_init(uint16_t io_base) {
     // Set up interrupts (enable receive and transmit OK)
     rtl_write16(RTL_REG_IMR, 0x0005);  // ROK | TOK
     
-    // Configure receive: accept broadcast + physical match + wrap
-    rtl_write32(RTL_REG_RCR, RCR_APM | RCR_AB | RCR_AM | RCR_WRAP | 0x0000E000);
+    // Configure receive: accept all packets (for debugging) + broadcast + physical match + wrap
+    // RCR_AAP = Accept All Packets, RCR_APM = Accept Physical Match, RCR_AB = Accept Broadcast
+    rtl_write32(RTL_REG_RCR, RCR_AAP | RCR_APM | RCR_AB | RCR_AM | RCR_WRAP | 0x0000E000);
+    terminal_writestring("[RTL8139] RCR configured to accept all packets\n");
     
     // Enable receiver and transmitter
     rtl_write8(RTL_REG_CR, CR_RE | CR_TE);
@@ -234,8 +236,39 @@ int rtl8139_init(uint16_t io_base) {
 
 // Send packet
 int rtl8139_send(const uint8_t* data, uint16_t length) {
-    if (!rtl_device.initialized) return 0;
-    if (length > TX_BUFFER_SIZE) return 0;
+    if (!rtl_device.initialized) {
+        terminal_writestring("[RTL8139] Send failed: not initialized\n");
+        return 0;
+    }
+    if (length > TX_BUFFER_SIZE) {
+        terminal_writestring("[RTL8139] Send failed: packet too large\n");
+        return 0;
+    }
+    
+    terminal_writestring("[RTL8139] Sending ");
+    char buf[16];
+    buf[0] = '0' + (length / 1000);
+    buf[1] = '0' + ((length / 100) % 10);
+    buf[2] = '0' + ((length / 10) % 10);
+    buf[3] = '0' + (length % 10);
+    buf[4] = '\0';
+    terminal_writestring(buf);
+    terminal_writestring(" bytes, slot ");
+    buf[0] = '0' + tx_slot;
+    buf[1] = '\0';
+    terminal_writestring(buf);
+    terminal_writestring("\n");
+    
+    // Debug: show first 16 bytes of packet
+    terminal_writestring("[RTL8139] Packet data: ");
+    for (int i = 0; i < 16 && i < length; i++) {
+        buf[0] = "0123456789ABCDEF"[(data[i] >> 4) & 0xF];
+        buf[1] = "0123456789ABCDEF"[data[i] & 0xF];
+        buf[2] = ' ';
+        buf[3] = '\0';
+        terminal_writestring(buf);
+    }
+    terminal_writestring("\n");
     
     // Copy data to transmit buffer
     for (int i = 0; i < length; i++) {
@@ -252,6 +285,12 @@ int rtl8139_send(const uint8_t* data, uint16_t length) {
     int timeout = 100000;
     while (!(rtl_read32(RTL_REG_TSD0 + tx_slot * 4) & TSD_TOK) && timeout--);
     
+    if (timeout == 0) {
+        terminal_writestring("[RTL8139] Send timeout!\n");
+    } else {
+        terminal_writestring("[RTL8139] Send OK\n");
+    }
+    
     // Move to next slot
     tx_slot = (tx_slot + 1) & 3;
     
@@ -262,17 +301,46 @@ int rtl8139_send(const uint8_t* data, uint16_t length) {
 int rtl8139_receive(net_packet_t* packet) {
     if (!rtl_device.initialized) return 0;
     
+    // Check ISR for received packets
+    uint16_t isr = rtl_read16(RTL_REG_ISR);
+    if (isr & ISR_ROK) {
+        terminal_writestring("[RTL8139] RX: ISR indicates packet ready\n");
+        // Clear the interrupt
+        rtl_write16(RTL_REG_ISR, ISR_ROK);
+    }
+    
     // Check if buffer is empty
-    if (rtl_read8(RTL_REG_CR) & CR_BUFE) {
+    uint8_t cr = rtl_read8(RTL_REG_CR);
+    if (cr & CR_BUFE) {
         return 0;
     }
+    
+    terminal_writestring("[RTL8139] RX: Buffer not empty, reading packet\n");
     
     // Read packet header
     uint16_t status = *(uint16_t*)(rtl_device.rx_buffer + rtl_device.rx_pos);
     uint16_t length = *(uint16_t*)(rtl_device.rx_buffer + rtl_device.rx_pos + 2);
     
+    terminal_writestring("[RTL8139] RX: status=0x");
+    char buf[8];
+    buf[0] = "0123456789ABCDEF"[(status >> 12) & 0xF];
+    buf[1] = "0123456789ABCDEF"[(status >> 8) & 0xF];
+    buf[2] = "0123456789ABCDEF"[(status >> 4) & 0xF];
+    buf[3] = "0123456789ABCDEF"[status & 0xF];
+    buf[4] = '\0';
+    terminal_writestring(buf);
+    terminal_writestring(" length=");
+    buf[0] = '0' + (length / 1000);
+    buf[1] = '0' + ((length / 100) % 10);
+    buf[2] = '0' + ((length / 10) % 10);
+    buf[3] = '0' + (length % 10);
+    buf[4] = '\0';
+    terminal_writestring(buf);
+    terminal_writestring("\n");
+    
     // Check for receive OK
     if (!(status & 0x01)) {
+        terminal_writestring("[RTL8139] RX: Error flag in status\n");
         // Error, skip packet
         rtl_device.rx_pos = (rtl_device.rx_pos + length + 4 + 3) & ~3;
         rtl_write16(RTL_REG_CAPR, rtl_device.rx_pos - 16);
@@ -287,6 +355,17 @@ int rtl8139_receive(net_packet_t* packet) {
         packet->data[i] = rtl_device.rx_buffer[rtl_device.rx_pos + 4 + i];
     }
     packet->length = length;
+    
+    // Debug: show first bytes
+    terminal_writestring("[RTL8139] RX: First 16 bytes: ");
+    for (int i = 0; i < 16 && i < length; i++) {
+        buf[0] = "0123456789ABCDEF"[(packet->data[i] >> 4) & 0xF];
+        buf[1] = "0123456789ABCDEF"[packet->data[i] & 0xF];
+        buf[2] = ' ';
+        buf[3] = '\0';
+        terminal_writestring(buf);
+    }
+    terminal_writestring("\n");
     
     // Update read pointer
     rtl_device.rx_pos = (rtl_device.rx_pos + length + 4 + 3) & ~3;
