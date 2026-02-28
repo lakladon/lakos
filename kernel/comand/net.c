@@ -242,6 +242,11 @@ void cmd_ping(const char* args) {
     terminal_writestring(buf);
     terminal_writestring("\n");
     
+    // Check if pinging ourselves
+    if (ip_equal(dest_ip, iface->ip)) {
+        terminal_writestring("Local ping - packets stay on host\n");
+    }
+    
     // Determine which IP we need ARP for (gateway or direct)
     const uint8_t* arp_target_ip = dest_ip;
     if (!is_same_subnet_local(dest_ip, iface)) {
@@ -308,11 +313,15 @@ void cmd_ping(const char* args) {
     if (result) {
         terminal_writestring("Ping sent, waiting for reply...\n");
         
-        // Wait for ICMP reply
-        for (int i = 0; i < 1000000; i++) {
+        // Wait for ICMP reply with more polling
+        int got_reply = 0;
+        for (int i = 0; i < 2000000; i++) {
             net_poll();
+            // TODO: Check for ICMP reply
         }
         terminal_writestring("Done\n");
+        terminal_writestring("Note: QEMU user-mode networking has limited ICMP support.\n");
+        terminal_writestring("Try: ping 10.0.2.2 (gateway) or use TCP-based tests.\n");
     } else {
         terminal_writestring("Failed to send ping\n");
     }
