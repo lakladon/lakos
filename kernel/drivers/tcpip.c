@@ -514,12 +514,30 @@ void net_init() {
         tcp_connections[i].active = 0;
     }
     
+    // Add static ARP entry for QEMU gateway
+    // QEMU user-mode gateway (10.0.2.2) typically has MAC 52:54:00:12:34:02
+    net_interface_t* iface = rtl8139_get_interface();
+    if (iface && iface->gateway[0] == 10 && iface->gateway[1] == 0 && 
+        iface->gateway[2] == 2 && iface->gateway[3] == 2) {
+        uint8_t gw_mac[6] = {0x52, 0x54, 0x00, 0x12, 0x34, 0x02};
+        arp_add(iface->gateway, gw_mac);
+        terminal_writestring("[NET] Added static ARP for QEMU gateway 10.0.2.2\n");
+    }
+    
     terminal_writestring("TCP/IP stack initialized\n");
 }
 
 // Poll for packets
 void net_poll() {
     net_packet_t packet;
+    
+    // Debug: show we're polling
+    static int poll_debug_count = 0;
+    if (poll_debug_count < 3) {
+        terminal_writestring("[NET] Polling...\n");
+        poll_debug_count++;
+    }
+    
     int received = rtl8139_receive(&packet);
     if (received > 0) {
         char buf[16];

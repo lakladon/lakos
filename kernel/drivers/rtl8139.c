@@ -197,6 +197,21 @@ int rtl8139_init(uint16_t io_base) {
     // Enable receiver and transmitter
     rtl_write8(RTL_REG_CR, CR_RE | CR_TE);
     
+    // Check link status
+    uint8_t msr = rtl_read8(RTL_REG_MSR);
+    terminal_writestring("[RTL8139] Media Status Register: 0x");
+    char msr_buf[4];
+    msr_buf[0] = "0123456789ABCDEF"[(msr >> 4) & 0xF];
+    msr_buf[1] = "0123456789ABCDEF"[msr & 0xF];
+    msr_buf[2] = '\0';
+    terminal_writestring(msr_buf);
+    if (msr & 0x80) {
+        terminal_writestring(" (Link UP)");
+    } else {
+        terminal_writestring(" (Link DOWN)");
+    }
+    terminal_writestring("\n");
+    
     // Copy MAC to interface
     for (int i = 0; i < 6; i++) {
         rtl_device.interface.mac[i] = rtl_device.mac[i];
@@ -299,7 +314,17 @@ int rtl8139_send(const uint8_t* data, uint16_t length) {
 
 // Receive packet
 int rtl8139_receive(net_packet_t* packet) {
-    if (!rtl_device.initialized) return 0;
+    // Debug: show we entered the function
+    static int enter_count = 0;
+    if (enter_count < 5) {
+        terminal_writestring("[RTL8139] RX: enter receive\n");
+        enter_count++;
+    }
+    
+    if (!rtl_device.initialized) {
+        terminal_writestring("[RTL8139] RX: not initialized!\n");
+        return 0;
+    }
     
     // Read ISR and CR for debugging
     uint16_t isr = rtl_read16(RTL_REG_ISR);
