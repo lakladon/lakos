@@ -17,7 +17,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y nasm gcc-multilib g++-multilib make xorriso limine
+          sudo apt-get install -y nasm gcc-multilib g++-multilib make xorriso 
 
       - name: Build kernel
         run: |
