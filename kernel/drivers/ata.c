@@ -30,63 +30,103 @@ static inline void outw(uint16_t port, uint16_t val) {
     __asm__ volatile("outw %0, %1" : : "a"(val), "Nd"(port));
 }
 
-// ATA ports
-#define ATA_DATA 0x1F0
-#define ATA_FEATURES 0x1F1
-#define ATA_SECTOR_COUNT 0x1F2
-#define ATA_LBA_LOW 0x1F3
-#define ATA_LBA_MID 0x1F4
-#define ATA_LBA_HIGH 0x1F5
-#define ATA_DRIVE 0x1F6
-#define ATA_COMMAND 0x1F7
-#define ATA_STATUS 0x1F7
+// Primary ATA ports
+#define ATA_PRIMARY_DATA 0x1F0
+#define ATA_PRIMARY_FEATURES 0x1F1
+#define ATA_PRIMARY_SECTOR_COUNT 0x1F2
+#define ATA_PRIMARY_LBA_LOW 0x1F3
+#define ATA_PRIMARY_LBA_MID 0x1F4
+#define ATA_PRIMARY_LBA_HIGH 0x1F5
+#define ATA_PRIMARY_DRIVE 0x1F6
+#define ATA_PRIMARY_COMMAND 0x1F7
+#define ATA_PRIMARY_STATUS 0x1F7
+
+// Secondary ATA ports
+#define ATA_SECONDARY_DATA 0x170
+#define ATA_SECONDARY_FEATURES 0x171
+#define ATA_SECONDARY_SECTOR_COUNT 0x172
+#define ATA_SECONDARY_LBA_LOW 0x173
+#define ATA_SECONDARY_LBA_MID 0x174
+#define ATA_SECONDARY_LBA_HIGH 0x175
+#define ATA_SECONDARY_DRIVE 0x176
+#define ATA_SECONDARY_COMMAND 0x177
+#define ATA_SECONDARY_STATUS 0x177
 
 // Commands
 #define ATA_CMD_READ 0x20
 #define ATA_CMD_WRITE 0x30
 #define ATA_CMD_IDENTIFY 0xEC
 
-int ata_wait() {
+// Drive types
+#define ATA_DRIVE_PRIMARY_MASTER 0
+#define ATA_DRIVE_PRIMARY_SLAVE 1
+#define ATA_DRIVE_SECONDARY_MASTER 2
+#define ATA_DRIVE_SECONDARY_SLAVE 3
+
+// Get base port for drive
+static uint16_t ata_get_base(uint8_t drive) {
+    if (drive < 2) return ATA_PRIMARY_DATA;
+    return ATA_SECONDARY_DATA;
+}
+
+static uint16_t ata_get_status_port(uint8_t drive) {
+    if (drive < 2) return ATA_PRIMARY_STATUS;
+    return ATA_SECONDARY_STATUS;
+}
+
+static uint16_t ata_get_drive_port(uint8_t drive) {
+    if (drive < 2) return ATA_PRIMARY_DRIVE;
+    return ATA_SECONDARY_DRIVE;
+}
+
+int ata_wait(uint8_t drive) {
     int timeout = 100000;
-    while ((inb(ATA_STATUS) & 0x80) && timeout--); // Wait for BSY to clear with timeout
+    uint16_t status_port = ata_get_status_port(drive);
+    while ((inb(status_port) & 0x80) && timeout--); // Wait for BSY to clear with timeout
     return timeout > 0;
 }
 
 void ata_select_drive(uint8_t drive) {
-    outb(ATA_DRIVE, 0xE0 | (drive << 4));
+    uint16_t drive_port = ata_get_drive_port(drive);
+    uint8_t drive_num = (drive & 1); // 0 for master, 1 for slave
+    outb(drive_port, 0xE0 | (drive_num << 4));
 }
 
 int ata_identify(uint8_t drive) {
+    uint16_t base = ata_get_base(drive);
+    uint16_t status_port = ata_get_status_port(drive);
+    
     ata_select_drive(drive);
-    outb(ATA_SECTOR_COUNT, 0);
-    outb(ATA_LBA_LOW, 0);
-    outb(ATA_LBA_MID, 0);
-    outb(ATA_LBA_HIGH, 0);
-    outb(ATA_COMMAND, ATA_CMD_IDENTIFY);
+    outb(base + 2, 0);  // Sector count
+    outb(base + 3, 0);  // LBA low
+    outb(base + 4, 0);  // LBA mid
+    outb(base + 5, 0);  // LBA high
+    outb(base + 7, ATA_CMD_IDENTIFY);
 
-    uint8_t status = inb(ATA_STATUS);
+    uint8_t status = inb(status_port);
     if (status == 0) {
-        terminal_writestring("DEBUG: ATA identify failed - status is 0\n");
         return 0; // No drive
     }
 
-    if (!ata_wait()) {
-        terminal_writestring("DEBUG: ATA identify failed - timeout\n");
+    if (!ata_wait(drive)) {
         return 0; // Timeout
     }
-    status = inb(ATA_STATUS);
+    status = inb(status_port);
     if (status & 0x01) {
-        terminal_writestring("DEBUG: ATA identify failed - ERR bit set\n");
         return 0; // ERR bit set
     }
 
     uint16_t identify_data[256];
     for (int i = 0; i < 256; i++) {
-        identify_data[i] = inw(ATA_DATA);
+        identify_data[i] = inw(base);
     }
 
     terminal_writestring("ATA Drive ");
-    char buf[2]; buf[0] = '0' + drive; buf[1] = 0;
+    char buf[4];
+    buf[0] = 'h';
+    buf[1] = 'd';
+    buf[2] = 'a' + drive;
+    buf[3] = 0;
     terminal_writestring(buf);
     terminal_writestring(" ID: 0x");
     print_hex(identify_data[0], 4);
@@ -96,93 +136,90 @@ int ata_identify(uint8_t drive) {
 }
 
 void ata_read_sector(uint8_t drive, uint32_t lba, uint16_t* buffer) {
-    if (drive > 1) return;
+    if (drive > 3) return;
     if (lba > 0xFFFFFF) return; // LBA28 limit
     
-    // Debug output
-    extern void terminal_writestring(const char*);
-    terminal_writestring("DEBUG: Reading sector ");
-    char buf[16];
-    itoa(lba, buf);
-    terminal_writestring(buf);
-    terminal_writestring(" from drive ");
-    itoa(drive, buf);
-    terminal_writestring(buf);
-    terminal_writestring("\n");
+    uint16_t base = ata_get_base(drive);
     
     ata_select_drive(drive);
-    outb(ATA_SECTOR_COUNT, 1);
-    outb(ATA_LBA_LOW, lba & 0xFF);
-    outb(ATA_LBA_MID, (lba >> 8) & 0xFF);
-    outb(ATA_LBA_HIGH, (lba >> 16) & 0xFF);
-    outb(ATA_COMMAND, ATA_CMD_READ);
+    outb(base + 2, 1);  // Sector count
+    outb(base + 3, lba & 0xFF);
+    outb(base + 4, (lba >> 8) & 0xFF);
+    outb(base + 5, (lba >> 16) & 0xFF);
+    outb(base + 7, ATA_CMD_READ);
 
-    if (!ata_wait()) {
-        terminal_writestring("DEBUG: ATA read timeout\n");
-        return; // Timeout, don't read
+    if (!ata_wait(drive)) {
+        return; // Timeout
     }
-    uint8_t status = inb(ATA_STATUS);
+    uint16_t status_port = ata_get_status_port(drive);
+    uint8_t status = inb(status_port);
     if (status & 0x01) {
-        terminal_writestring("DEBUG: ATA read error - ERR bit set\n");
         return; // ERR bit set
     }
     
     for (int i = 0; i < 256; i++) {
-        buffer[i] = inw(ATA_DATA);
+        buffer[i] = inw(base);
     }
-    
-    terminal_writestring("DEBUG: ATA read completed successfully\n");
 }
 
 void ata_write_sector(uint8_t drive, uint32_t lba, uint16_t* buffer) {
-    if (drive > 1) return;
+    if (drive > 3) return;
     if (lba > 0xFFFFFF) return; // LBA28 limit
+    
+    uint16_t base = ata_get_base(drive);
+    
     ata_select_drive(drive);
-    outb(ATA_SECTOR_COUNT, 1);
-    outb(ATA_LBA_LOW, lba & 0xFF);
-    outb(ATA_LBA_MID, (lba >> 8) & 0xFF);
-    outb(ATA_LBA_HIGH, (lba >> 16) & 0xFF);
-    outb(ATA_COMMAND, ATA_CMD_WRITE);
+    outb(base + 2, 1);  // Sector count
+    outb(base + 3, lba & 0xFF);
+    outb(base + 4, (lba >> 8) & 0xFF);
+    outb(base + 5, (lba >> 16) & 0xFF);
+    outb(base + 7, ATA_CMD_WRITE);
 
-    if (!ata_wait()) return; // Timeout, don't write
+    if (!ata_wait(drive)) return; // Timeout
     for (int i = 0; i < 256; i++) {
-        outw(ATA_DATA, buffer[i]);
+        outw(base, buffer[i]);
     }
-    // Flush cache (simplified)
-    ata_wait(); // Wait for write to complete
+    ata_wait(drive); // Wait for write to complete
 }
 
 void ata_read_sectors(uint8_t drive, uint32_t lba, uint16_t* buffer, uint8_t count) {
+    if (drive > 3) return;
+    
+    uint16_t base = ata_get_base(drive);
+    
     ata_select_drive(drive);
-    outb(ATA_SECTOR_COUNT, count);
-    outb(ATA_LBA_LOW, lba & 0xFF);
-    outb(ATA_LBA_MID, (lba >> 8) & 0xFF);
-    outb(ATA_LBA_HIGH, (lba >> 16) & 0xFF);
-    outb(ATA_COMMAND, ATA_CMD_READ);
+    outb(base + 2, count);
+    outb(base + 3, lba & 0xFF);
+    outb(base + 4, (lba >> 8) & 0xFF);
+    outb(base + 5, (lba >> 16) & 0xFF);
+    outb(base + 7, ATA_CMD_READ);
 
-    if (!ata_wait()) return; // Timeout
+    if (!ata_wait(drive)) return; // Timeout
     for (int s = 0; s < count; s++) {
         for (int i = 0; i < 256; i++) {
-            buffer[s * 256 + i] = inw(ATA_DATA);
+            buffer[s * 256 + i] = inw(base);
         }
     }
 }
 
 void ata_write_sectors(uint8_t drive, uint32_t lba, uint16_t* buffer, uint8_t count) {
+    if (drive > 3) return;
+    
+    uint16_t base = ata_get_base(drive);
+    
     ata_select_drive(drive);
-    outb(ATA_SECTOR_COUNT, count);
-    outb(ATA_LBA_LOW, lba & 0xFF);
-    outb(ATA_LBA_MID, (lba >> 8) & 0xFF);
-    outb(ATA_LBA_HIGH, (lba >> 16) & 0xFF);
-    outb(ATA_COMMAND, ATA_CMD_WRITE);
+    outb(base + 2, count);
+    outb(base + 3, lba & 0xFF);
+    outb(base + 4, (lba >> 8) & 0xFF);
+    outb(base + 5, (lba >> 16) & 0xFF);
+    outb(base + 7, ATA_CMD_WRITE);
 
-    if (!ata_wait()) return; // Timeout
+    if (!ata_wait(drive)) return; // Timeout
     for (int s = 0; s < count; s++) {
         for (int i = 0; i < 256; i++) {
-            outw(ATA_DATA, buffer[s * 256 + i]);
+            outw(base, buffer[s * 256 + i]);
         }
     }
-    // Flush cache
 }
 
 void ata_init() {
@@ -191,7 +228,9 @@ void ata_init() {
 
 int ata_detect_disks() {
     int count = 0;
-    if (ata_identify(0)) count++;
-    if (ata_identify(1)) count++;
+    if (ata_identify(0)) count++;  // Primary master
+    if (ata_identify(1)) count++;  // Primary slave
+    if (ata_identify(2)) count++;  // Secondary master
+    if (ata_identify(3)) count++;  // Secondary slave
     return count;
 }
