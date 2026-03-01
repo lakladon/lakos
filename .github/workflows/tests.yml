@@ -278,7 +278,6 @@ jobs:
           echo "New version: $NEW_VERSION"
 
       - name: Create Release
-        if: steps.version.outputs.should_release == 'true'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ steps.version.outputs.version }}
