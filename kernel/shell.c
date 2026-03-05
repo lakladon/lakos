@@ -14,6 +14,7 @@
 extern void terminal_writestring(const char* s);
 extern void terminal_putchar(char c);
 extern void terminal_initialize();
+extern void terminal_display_time();
 
 unsigned char kbd_map[128] = {
     0,  27, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
@@ -528,7 +529,13 @@ void shell_main() {
     // Display initial prompt and set prompt_length
     display_prompt();
     
+    // Display initial time
+    terminal_display_time();
+    
     while(1) {
+        // Update time display on every iteration
+        terminal_display_time();
+        
         if (inb(0x64) & 0x1) {
             uint8_t scancode = inb(0x60);
             if ((scancode & 0x7F) == 42 || (scancode & 0x7F) == 54) {

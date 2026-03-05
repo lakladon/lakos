@@ -20,6 +20,78 @@ static inline uint8_t inb(uint16_t port) {
     return ret;
 }
 
+// RTC functions for real-time clock
+uint8_t rtc_read(uint8_t reg) {
+    outb(0x70, reg);
+    return inb(0x71);
+}
+
+void rtc_write(uint8_t reg, uint8_t val) {
+    outb(0x70, reg);
+    outb(0x71, val);
+}
+
+int rtc_is_updating() {
+    outb(0x70, 0x0A);
+    return (inb(0x71) & 0x80);
+}
+
+// Convert BCD to binary
+uint8_t bcd_to_bin(uint8_t bcd) {
+    return (bcd / 16) * 10 + (bcd % 16);
+}
+
+// Get current time from RTC
+void rtc_get_time(int* hours, int* minutes, int* seconds) {
+    // Wait if RTC is updating
+    while (rtc_is_updating());
+    
+    *seconds = bcd_to_bin(rtc_read(0x00));
+    *minutes = bcd_to_bin(rtc_read(0x02));
+    *hours = bcd_to_bin(rtc_read(0x04));
+}
+
+// Display time in top right corner
+void terminal_display_time() {
+    int hours, minutes, seconds;
+    rtc_get_time(&hours, &minutes, &seconds);
+    
+    // Save current cursor position
+    int saved_col = term_col;
+    int saved_row = term_row;
+    uint8_t saved_attr = current_attr;
+    
+    // Position at top right (column 68 for HH:MM:SS format)
+    int time_col = 71;
+    int time_row = 0;
+    
+    // Use cyan color for time
+    current_attr = 0x0B; // cyan on black
+    
+    // Format time string HH:MM:SS
+    char time_str[9];
+    time_str[0] = '0' + (hours / 10);
+    time_str[1] = '0' + (hours % 10);
+    time_str[2] = ':';
+    time_str[3] = '0' + (minutes / 10);
+    time_str[4] = '0' + (minutes % 10);
+    time_str[5] = ':';
+    time_str[6] = '0' + (seconds / 10);
+    time_str[7] = '0' + (seconds % 10);
+    time_str[8] = '\0';
+    
+    // Write time at top right
+    for (int i = 0; i < 8; i++) {
+        video_memory[time_row * VGA_WIDTH + time_col + i] = 
+            (uint16_t)time_str[i] | (uint16_t)current_attr << 8;
+    }
+    
+    // Restore cursor position and attribute
+    term_col = saved_col;
+    term_row = saved_row;
+    current_attr = saved_attr;
+}
+
 void kmain(multiboot_info_t* mb_info, uint32_t magic);
 
 // Multiboot header
