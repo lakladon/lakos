@@ -182,11 +182,13 @@ void terminal_set_background(uint8_t bg_color) {
 
 // Set exact RGB background color by reprogramming VGA palette
 void terminal_set_background_rgb(uint8_t r, uint8_t g, uint8_t b) {
-    // Use palette index 0 (normally black) for custom background color
-    vga_set_palette_color(0, r, g, b);
+    // Use palette index 8 (normally dark grey) for custom background color
+    // Index 8 is less commonly used for text, so it's safer to modify
+    vga_set_palette_color(8, r, g, b);
     
-    // Set background to index 0 (which now has our custom color)
-    current_attr = (current_attr & 0x0F) | (0 << 4);  // background = index 0
+    // Set background to index 8 (which now has our custom color)
+    // Keep foreground as white (index 15) for visibility
+    current_attr = (15 & 0x0F) | ((8 & 0x0F) << 4);  // foreground=white, background=custom(index 8)
     
     // Redraw entire screen with new background color
     for (int i = 0; i < VGA_WIDTH * VGA_HEIGHT; i++) {
