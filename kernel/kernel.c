@@ -154,6 +154,50 @@ void terminal_initialize() {
     terminal_update_cursor();
 }
 
+// Set VGA DAC palette color (index 0-15, RGB values 0-63 each)
+void vga_set_palette_color(uint8_t index, uint8_t r, uint8_t g, uint8_t b) {
+    // VGA DAC uses 6-bit values (0-63), so we need to scale from 0-255 to 0-63
+    r = r >> 2;  // Scale 0-255 to 0-63
+    g = g >> 2;
+    b = b >> 2;
+    
+    outb(0x3C8, index);  // DAC address write register
+    outb(0x3C9, r);      // Red component
+    outb(0x3C9, g);      // Green component
+    outb(0x3C9, b);      // Blue component
+}
+
+// Set background color and redraw screen
+void terminal_set_background(uint8_t bg_color) {
+    // Update current attribute: keep foreground (low 4 bits), set background (high 4 bits)
+    current_attr = (current_attr & 0x0F) | ((bg_color & 0x0F) << 4);
+    
+    // Redraw entire screen with new background color
+    for (int i = 0; i < VGA_WIDTH * VGA_HEIGHT; i++) {
+        uint16_t old_char = video_memory[i];
+        char c = (char)(old_char & 0xFF);
+        video_memory[i] = (uint16_t)c | (uint16_t)current_attr << 8;
+    }
+}
+
+// Set exact RGB background color by reprogramming VGA palette
+void terminal_set_background_rgb(uint8_t r, uint8_t g, uint8_t b) {
+    // Use palette index 8 (normally dark grey) for custom background color
+    // Index 8 is less commonly used for text, so it's safer to modify
+    vga_set_palette_color(8, r, g, b);
+    
+    // Set background to index 8 (which now has our custom color)
+    // Keep foreground as white (index 15) for visibility
+    current_attr = (15 & 0x0F) | ((8 & 0x0F) << 4);  // foreground=white, background=custom(index 8)
+    
+    // Redraw entire screen with new background color
+    for (int i = 0; i < VGA_WIDTH * VGA_HEIGHT; i++) {
+        uint16_t old_char = video_memory[i];
+        char c = (char)(old_char & 0xFF);
+        video_memory[i] = (uint16_t)c | (uint16_t)current_attr << 8;
+    }
+}
+
 void terminal_putchar(char c) {
     if (term_capture_enabled && term_capture_buffer && term_capture_size > 0) {
         if (c == '\b') {
