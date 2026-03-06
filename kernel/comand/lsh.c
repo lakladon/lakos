@@ -20,7 +20,7 @@ extern char* strncpy(char* dest, const char* src, unsigned int n);
 extern char* strchr(const char* s, int c);
 extern char* strrchr(const char* s, int c);
 extern char* strstr(const char* haystack, const char* needle);
-extern char* strcpy(char* dest, const char* src);
+extern void strcpy(char* dest, const char* src);
 extern char* strcat(char* dest, const char* src);
 
 #define MAX_VARS 64
