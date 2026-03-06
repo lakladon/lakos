@@ -270,22 +270,29 @@ jobs:
           
           # Get all existing tags from git
           git fetch --tags
-          EXISTING_TAGS=$(git tag -l "v${TODAY}.*" | sort -V)
-          echo "Existing tags for today: $EXISTING_TAGS"
-          
-          # Get all releases from GitHub API
-          RELEASES=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.com/repos/${{ github.repository }}/releases" 2>/dev/null || echo "[]")
           
           # Find next available patch number for today
           PATCH=1
           while true; do
-            TAG_EXISTS=$(echo "$EXISTING_TAGS" | grep -c "^v${TODAY}.${PATCH}$" || echo "0")
-            RELEASE_EXISTS=$(echo "$RELEASES" | grep -c "\"tag_name\": *\"v${TODAY}.${PATCH}\"" || echo "0")
-            if [ "$TAG_EXISTS" -eq 0 ] && [ "$RELEASE_EXISTS" -eq 0 ]; then
-              break
+            VERSION="v${TODAY}.${PATCH}"
+            
+            # Check if tag exists locally
+            if git tag -l "$VERSION" | grep -q .; then
+              PATCH=$((PATCH + 1))
+              continue
             fi
-            PATCH=$((PATCH + 1))
+            
+            # Check if release exists via GitHub API
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: token $GITHUB_TOKEN" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/tags/$VERSION")
+            
+            if [ "$HTTP_CODE" = "200" ]; then
+              PATCH=$((PATCH + 1))
+              continue
+            fi
+            
+            # Version is available
+            break
           done
           
           NEW_VERSION="${TODAY}.${PATCH}"
