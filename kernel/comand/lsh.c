@@ -462,16 +462,10 @@ static void execute_line(const char* line) {
         return;
     }
     
-    // Otherwise, execute as shell command
-    char expanded[MAX_LINE_LEN];
-    expand_variables(line, expanded, MAX_LINE_LEN);
-    // Remove trailing newline
-    int len = strlen(expanded);
-    if (len > 0 && expanded[len - 1] == '\n') expanded[len - 1] = '\0';
-    
-    if (strlen(expanded) > 0) {
-        kernel_execute_command(expanded);
-    }
+    // Unknown command - show error
+    terminal_writestring("lsh: unknown command '");
+    terminal_writestring(line);
+    terminal_writestring("'. Use 'sh command' to execute shell commands.\n");
 }
 
 // Load script from tar archive
