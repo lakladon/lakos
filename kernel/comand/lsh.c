@@ -505,20 +505,62 @@ static int load_script_from_tar(const char* filename) {
     return 1;
 }
 
+// External function for reading input
+extern void read_line(char* buffer, int max, int echo);
+
+// Interactive REPL mode
+static void lsh_repl() {
+    char line[MAX_LINE_LEN];
+    
+    terminal_writestring("\n");
+    terminal_writestring("lsh: Interactive mode. Type 'exit' to quit.\n");
+    terminal_writestring("Special commands: var=value, print, set, exit\n");
+    terminal_writestring("\n");
+    
+    while (1) {
+        terminal_writestring("lsh> ");
+        read_line(line, MAX_LINE_LEN - 1, 1);
+        
+        // Skip empty lines
+        const char* trimmed = skip_whitespace(line);
+        if (*trimmed == '\0') continue;
+        
+        // Check for exit command
+        if (strcmp(trimmed, "exit") == 0 || strncmp(trimmed, "exit ", 5) == 0) {
+            terminal_writestring("Exiting lsh interactive mode.\n");
+            break;
+        }
+        
+        // Check for help command
+        if (strcmp(trimmed, "help") == 0) {
+            terminal_writestring("lsh commands:\n");
+            terminal_writestring("  var=value    - Set variable\n");
+            terminal_writestring("  print text   - Print text ($var expanded)\n");
+            terminal_writestring("  set var val  - Set variable\n");
+            terminal_writestring("  exit         - Exit interactive mode\n");
+            terminal_writestring("  help         - Show this help\n");
+            terminal_writestring("  Any other command is executed as shell command\n");
+            continue;
+        }
+        
+        // Execute the line
+        execute_line(trimmed);
+    }
+}
+
 // Main lsh command
 static void cmd_lsh(const char* args) {
     args = skip_whitespace(args);
     
     if (*args == '\0') {
-        terminal_writestring("lsh: Lakos Shell Script Interpreter\n");
-        terminal_writestring("Usage: lsh <script.lsh>\n");
-        terminal_writestring("\nFeatures:\n");
-        terminal_writestring("  Variables: var=value or set var value\n");
-        terminal_writestring("  Print: print $var or print \"text\"\n");
-        terminal_writestring("  Conditions: if $a == $b ... else ... fi\n");
-        terminal_writestring("  Loops: while $a < 10 ... done\n");
-        terminal_writestring("  Commands: Any shell command\n");
-        terminal_writestring("  Comments: # this is a comment\n");
+        // No arguments - start interactive mode
+        lsh_repl();
+        return;
+    }
+    
+    // Check for -i flag (interactive mode)
+    if (strcmp(args, "-i") == 0 || strncmp(args, "-i ", 3) == 0) {
+        lsh_repl();
         return;
     }
     
