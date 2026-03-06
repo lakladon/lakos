@@ -21,7 +21,6 @@ char* strncat(char* dest, const char* src, int n);
 char* strchr(const char* s, int c);
 char* strrchr(const char* s, int c);
 char* strcat(char* dest, const char* src);
-char* strrchr(const char* s, int c);
 char* strncpy(char* dest, const char* src, unsigned int n);
 void itoa(int n, char* buf);
 void tar_list_directory(void* archive, const char* dirpath);
