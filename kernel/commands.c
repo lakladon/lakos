@@ -225,6 +225,7 @@ static void reboot();
 #include "comand/calc.c"
 #include "comand/asm.c"
 #include "comand/net.c"
+#include "comand/colorb.c"
 
 void init_kernel_commands() {
     // If tar archive is available, get directories from it
@@ -626,6 +627,8 @@ void kernel_execute_command(const char* input) {
         cmd_arp(args);
     } else if (strcmp(cmd, "nethelp") == 0) {
         cmd_nethelp(args);
+    } else if (strcmp(cmd, "colorb") == 0) {
+        cmd_colorb(args);
     } else {
         if (is_file_in_path(cmd, pathbin)) {
             execute_binary(cmd);
