@@ -54,6 +54,7 @@ make clean
 - диски: `disks`, `read_sector`, `write_sector`, `mount`
 - пользователи: `useradd`, `userdel`, `login`, `passwd`
 - крипто: `crypt -e <key> <text>`, `crypt -d <key> <text>`
+- скрипты: `lsh <script.lsh>` - интерпретатор скриптов
 - прочее: `cls`, `shutdown`, `reboot`, `gui`
 
 Доступные пользовательские программы в `/bin`:

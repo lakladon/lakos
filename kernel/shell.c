@@ -103,9 +103,9 @@ static const char* available_commands[] = {
     "help", "man", "cls", "ver", "pwd", "ls", "cd", "echo", "uname", "date", 
     "cat", "mkdir", "disks", "read_sector", "write_sector", "mount",
     "useradd", "passwd", "login", "userdel", "crypt", "whoami", 
-    "touch", "rm", "cp", "shutdown", "reboot", "gui", "hello", "test", "editor", "calc", "asm", "colorb"
+    "touch", "rm", "cp", "shutdown", "reboot", "gui", "hello", "test", "editor", "calc", "asm", "colorb", "lsh"
 };
-static int commands_count = 35;
+static int commands_count = 36;
 
 // Arrow key scancodes
 #define KEY_UP 72
