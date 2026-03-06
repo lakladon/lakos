@@ -300,8 +300,7 @@ jobs:
           echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
           echo "New version: $NEW_VERSION"
 
-      - name: Create Draft Release
-        id: create_release
+      - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ steps.version.outputs.version }}
@@ -318,15 +317,7 @@ jobs:
             2. Run with QEMU: `qemu-system-i386 -cdrom lakos.iso -m 512M`
             3. Or burn to USB/DVD for real hardware
           files: lakos.iso
-          draft: true
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ steps.version.outputs.version }}
           draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
