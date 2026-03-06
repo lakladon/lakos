@@ -226,6 +226,7 @@ static void reboot();
 #include "comand/asm.c"
 #include "comand/net.c"
 #include "comand/colorb.c"
+#include "comand/lsh.c"
 
 void init_kernel_commands() {
     // If tar archive is available, get directories from it
@@ -629,6 +630,8 @@ void kernel_execute_command(const char* input) {
         cmd_nethelp(args);
     } else if (strcmp(cmd, "colorb") == 0) {
         cmd_colorb(args);
+    } else if (strcmp(cmd, "lsh") == 0) {
+        cmd_lsh(args);
     } else {
         if (is_file_in_path(cmd, pathbin)) {
             execute_binary(cmd);

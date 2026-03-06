@@ -1,0 +1,28 @@
+# Lakos Shell Script Test
+# This is a comment
+
+# Variable assignment
+name="Lakos OS"
+version=1
+
+# Print variables
+print "Welcome to $name!"
+print "Version: $version"
+
+# Conditional statement
+if $version == 1
+    print "First version detected"
+fi
+
+# Loop example
+counter=0
+while $counter < 3
+    print "Counter: $counter"
+    counter=$counter + 1
+done
+
+# Execute shell commands
+echo "Hello from lsh script!"
+ver
+
+print "Script completed!"
