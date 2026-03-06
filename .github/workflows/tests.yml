@@ -268,16 +268,23 @@ jobs:
         run: |
           TODAY=$(date +'%Y.%m.%d')
           
+          # Get all existing tags from git
+          git fetch --tags
+          EXISTING_TAGS=$(git tag -l "v${TODAY}.*" | sort -V)
+          echo "Existing tags for today: $EXISTING_TAGS"
+          
           # Get all releases from GitHub API
           RELEASES=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.com/repos/${{ github.repository }}/releases" | \
-            grep -o '"tag_name": *"[^"]*"' | grep -o 'v[0-9.]*' || true)
-          
-          echo "Existing releases: $RELEASES"
+            "https://api.github.com/repos/${{ github.repository }}/releases" 2>/dev/null || echo "[]")
           
           # Find next available patch number for today
           PATCH=1
-          while echo "$RELEASES" | grep -q "v${TODAY}.${PATCH}" || git tag -l "v${TODAY}.${PATCH}" 2>/dev/null | grep -q .; do
+          while true; do
+            TAG_EXISTS=$(echo "$EXISTING_TAGS" | grep -c "^v${TODAY}.${PATCH}$" || echo "0")
+            RELEASE_EXISTS=$(echo "$RELEASES" | grep -c "\"tag_name\": *\"v${TODAY}.${PATCH}\"" || echo "0")
+            if [ "$TAG_EXISTS" -eq 0 ] && [ "$RELEASE_EXISTS" -eq 0 ]; then
+              break
+            fi
             PATCH=$((PATCH + 1))
           done
           
@@ -305,5 +312,6 @@ jobs:
           files: lakos.iso
           draft: false
           prerelease: false
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
