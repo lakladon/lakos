@@ -512,10 +512,7 @@ extern void read_line(char* buffer, int max, int echo);
 static void lsh_repl() {
     char line[MAX_LINE_LEN];
     
-    terminal_writestring("\n");
-    terminal_writestring("lsh: Interactive mode. Type 'exit' to quit.\n");
-    terminal_writestring("Special commands: var=value, print, set, exit\n");
-    terminal_writestring("\n");
+    terminal_writestring("lsh interactive mode. Type 'exit' to quit, 'help' for commands.\n");
     
     while (1) {
         terminal_writestring("lsh> ");
