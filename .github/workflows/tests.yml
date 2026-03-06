@@ -261,63 +261,75 @@ jobs:
           name: lakos-iso
           path: .
 
-      - name: Generate version
-        id: version
+      - name: Generate version and create release
+        id: release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TODAY=$(date +'%Y.%m.%d')
           
-          # Get all existing tags from git
-          git fetch --tags
+          # Fetch all tags from remote
+          git fetch --tags -f
+          
+          # Get all existing releases using gh CLI
+          echo "Fetching existing releases..."
+          EXISTING_RELEASES=$(gh release list --limit 100 2>/dev/null | awk '{print $2}' || true)
+          echo "Existing releases: $EXISTING_RELEASES"
+          
+          # Get all existing tags
+          EXISTING_TAGS=$(git tag -l 2>/dev/null || true)
+          echo "Existing tags: $EXISTING_TAGS"
           
           # Find next available patch number for today
           PATCH=1
-          while true; do
+          MAX_PATCH=100
+          
+          while [ $PATCH -le $MAX_PATCH ]; do
             VERSION="v${TODAY}.${PATCH}"
             
-            # Check if tag exists locally
-            if git tag -l "$VERSION" | grep -q .; then
+            # Check if release exists
+            if echo "$EXISTING_RELEASES" | grep -q "^${VERSION}$"; then
+              echo "Release $VERSION exists, skipping..."
               PATCH=$((PATCH + 1))
               continue
             fi
             
-            # Check if release exists via GitHub API
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: token $GITHUB_TOKEN" \
-              "https://api.github.com/repos/${{ github.repository }}/releases/tags/$VERSION")
-            
-            if [ "$HTTP_CODE" = "200" ]; then
+            # Check if tag exists
+            if echo "$EXISTING_TAGS" | grep -q "^${VERSION}$"; then
+              echo "Tag $VERSION exists, skipping..."
               PATCH=$((PATCH + 1))
               continue
             fi
             
             # Version is available
+            echo "Found available version: $VERSION"
             break
           done
           
+          if [ $PATCH -gt $MAX_PATCH ]; then
+            echo "Error: Could not find available version after $MAX_PATCH attempts"
+            exit 1
+          fi
+          
           NEW_VERSION="${TODAY}.${PATCH}"
+          DATE=$(date +'%Y-%m-%d')
+          echo "Creating release $NEW_VERSION..."
+          
+          # Create release using gh CLI with asset upload in one step
+          gh release create "$NEW_VERSION" \
+            --title "Lakos OS $NEW_VERSION" \
+            --notes "## Lakos OS Release $NEW_VERSION
+          
+          ### Build Information
+          - Date: $DATE
+          - Commit: ${{ github.sha }}
+          
+          ### How to Run
+          1. Download \`lakos.iso\`
+          2. Run with QEMU: \`qemu-system-i386 -cdrom lakos.iso -m 512M\`
+          3. Or burn to USB/DVD for real hardware" \
+            lakos.iso
+          
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
-          echo "New version: $NEW_VERSION"
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: Lakos OS ${{ steps.version.outputs.version }}
-          body: |
-            ## Lakos OS Release ${{ steps.version.outputs.version }}
-            
-            ### Build Information
-            - Date: ${{ steps.version.outputs.date }}
-            - Commit: ${{ github.sha }}
-            
-            ### How to Run
-            1. Download `lakos.iso`
-            2. Run with QEMU: `qemu-system-i386 -cdrom lakos.iso -m 512M`
-            3. Or burn to USB/DVD for real hardware
-          files: lakos.iso
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "date=$DATE" >> $GITHUB_OUTPUT
+          echo "Release $NEW_VERSION created successfully!"
