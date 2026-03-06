@@ -47,25 +47,6 @@ void read_line(char* buffer, int max, int echo) {
                 int uppercase = shift_pressed || (caps_locked && is_letter);
                 char c = uppercase ? kbd_map_shift[scancode] : kbd_map[scancode];
                 
-                // Debug: Print scancode and character for troubleshooting
-                if (scancode == 31 || scancode == 38) {
-                    terminal_writestring("DEBUG: scancode=");
-                    char buf[4];
-                    itoa(scancode, buf);
-                    terminal_writestring(buf);
-                    terminal_writestring(" char='");
-                    terminal_putchar(c);
-                    terminal_writestring("' uppercase=");
-                    itoa(uppercase, buf);
-                    terminal_writestring(buf);
-                    terminal_writestring(" shift=");
-                    itoa(shift_pressed, buf);
-                    terminal_writestring(buf);
-                    terminal_writestring(" caps=");
-                    itoa(caps_locked, buf);
-                    terminal_writestring(buf);
-                    terminal_writestring("\n");
-                }
                 if (c == '\n') {
                     buffer[ptr] = '\0';
                     if (echo) terminal_putchar('\n');
@@ -478,15 +459,8 @@ void shell_main() {
     terminal_writestring("| |_ <_> || / /| | |\\__ \\\n");
     terminal_writestring("|___|<___||_\\_\\`___'<___/  ONO SUKA RABOTAET\n");
     terminal_writestring("\nWelcome to Lakos OS\n");
-    terminal_writestring("\033[31mError: \033[0mSomething went wrong");
 
-    terminal_writestring("Shell initialized, starting login\n");
-
-    // Debug: Check current_user before login
-    terminal_writestring("DEBUG: current_user before login = ");
-    terminal_writestring(current_user);
-    terminal_writestring("\n");
-
+    
     // Login
     char username[32];
     char password[32];
