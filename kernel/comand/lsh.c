@@ -438,6 +438,20 @@ static void execute_line(const char* line) {
         return;
     }
     
+    // sh command: execute shell command
+    if (strncmp(line, "sh ", 3) == 0) {
+        const char* cmd = line + 3;
+        cmd = skip_whitespace(cmd);
+        char expanded[MAX_LINE_LEN];
+        expand_variables(cmd, expanded, MAX_LINE_LEN);
+        int len = strlen(expanded);
+        if (len > 0 && expanded[len - 1] == '\n') expanded[len - 1] = '\0';
+        if (strlen(expanded) > 0) {
+            kernel_execute_command(expanded);
+        }
+        return;
+    }
+    
     // sleep command (simple delay)
     if (strncmp(line, "sleep ", 6) == 0) {
         int delay = atoi(line + 6);
@@ -534,8 +548,11 @@ static void lsh_repl() {
             terminal_writestring("  var=value    - Set variable\n");
             terminal_writestring("  print text   - Print text ($var expanded)\n");
             terminal_writestring("  set var val  - Set variable\n");
+            terminal_writestring("  sh command   - Execute shell command\n");
             terminal_writestring("  exit         - Exit interactive mode\n");
             terminal_writestring("  help         - Show this help\n");
+            terminal_writestring("  if/else/fi   - Conditional\n");
+            terminal_writestring("  while/done   - Loop\n");
             terminal_writestring("  Any other command is executed as shell command\n");
             continue;
         }
