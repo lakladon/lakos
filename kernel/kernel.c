@@ -70,6 +70,7 @@ uint16_t* video_memory = (uint16_t*)VIDEO_MEMORY;
 int term_col = 0;
 int term_row = 0;
 uint8_t current_attr = 0x0F; // white on black
+uint8_t current_bg_index = 0; // current background palette index (0-15)
 int cursor_visible = 1;
 
 // Update hardware cursor position
@@ -169,6 +170,9 @@ void vga_set_palette_color(uint8_t index, uint8_t r, uint8_t g, uint8_t b) {
 
 // Set background color and redraw screen
 void terminal_set_background(uint8_t bg_color) {
+    // Store the background index
+    current_bg_index = bg_color & 0x0F;
+    
     // Update current attribute: keep foreground (low 4 bits), set background (high 4 bits)
     current_attr = (current_attr & 0x0F) | ((bg_color & 0x0F) << 4);
     
@@ -185,6 +189,9 @@ void terminal_set_background_rgb(uint8_t r, uint8_t g, uint8_t b) {
     // Use palette index 8 (normally dark grey) for custom background color
     // Index 8 is less commonly used for text, so it's safer to modify
     vga_set_palette_color(8, r, g, b);
+    
+    // Store the background index
+    current_bg_index = 8;
     
     // Set background to index 8 (which now has our custom color)
     // Keep foreground as white (index 15) for visibility
@@ -266,11 +273,11 @@ void terminal_writestring(const char* s) {
             }
             if (*s == 'm') {
                 s++;
-                if (code == 0) current_attr = 0x0F;
-                else if (code == 31) current_attr = 0x04;
-                else if (code == 32) current_attr = 0x02;
-                else if (code == 33) current_attr = 0x0E;
-                else if (code == 36) current_attr = 0x03;
+                if (code == 0) current_attr = 0x0F | (current_bg_index << 4); // reset to white on current background
+                else if (code == 31) current_attr = 0x04 | (current_bg_index << 4); // red on current background
+                else if (code == 32) current_attr = 0x02 | (current_bg_index << 4); // green on current background
+                else if (code == 33) current_attr = 0x0E | (current_bg_index << 4); // yellow on current background
+                else if (code == 36) current_attr = 0x03 | (current_bg_index << 4); // cyan on current background
             } else {
                 while (*s && *s != 'm') s++;
                 if (*s == 'm') s++;
@@ -296,8 +303,8 @@ void terminal_display_time() {
     int time_col = 71;
     int time_row = 0;
     
-    // Use cyan color for time
-    current_attr = 0x0B; // cyan on black
+    // Use cyan foreground with current background color
+    current_attr = (0x0B & 0x0F) | (current_bg_index << 4); // cyan on current background
     
     // Format time string HH:MM:SS
     char time_str[9];
