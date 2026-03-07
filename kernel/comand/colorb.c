@@ -72,7 +72,7 @@ static void cmd_colorb(const char* args) {
         return;
     }
     
-    // Check for hex color format #RRGGBB
+    // Check for hex color format #RRGGBB first
     if (*args == '#') {
         args++; // Skip #
         int hex_value = 0;
@@ -96,20 +96,50 @@ static void cmd_colorb(const char* args) {
         g = (hex_value >> 8) & 0xFF;
         b = hex_value & 0xFF;
     } else {
-        // Parse R
-        r = parse_number(&args);
+        // Count arguments
+        const char* temp = args;
+        int arg_count = 0;
+        int in_word = 0;
         
-        // Skip separator
-        skip_separator(&args);
+        while (*temp) {
+            if (*temp != ' ' && *temp != ',' && *temp != ';' && *temp != ':') {
+                if (!in_word) {
+                    arg_count++;
+                    in_word = 1;
+                }
+            } else {
+                in_word = 0;
+            }
+            temp++;
+        }
         
-        // Parse G
-        g = parse_number(&args);
-        
-        // Skip separator
-        skip_separator(&args);
-        
-        // Parse B
-        b = parse_number(&args);
+        if (arg_count == 1) {
+            // Single argument - use it for all three colors (grayscale)
+            int value = parse_number(&args);
+            if (value < 0) value = 0; else if (value > 255) value = 255;
+            r = g = b = value;
+            terminal_writestring("Single color value detected, using grayscale: ");
+            char buf[4];
+            itoa(value, buf);
+            terminal_writestring(buf);
+            terminal_writestring("\n");
+        } else {
+            // Multiple arguments - parse them normally
+            // Parse R
+            r = parse_number(&args);
+            
+            // Skip separator
+            skip_separator(&args);
+            
+            // Parse G
+            g = parse_number(&args);
+            
+            // Skip separator
+            skip_separator(&args);
+            
+            // Parse B
+            b = parse_number(&args);
+        }
     }
     
     // Clamp values to 0-255
