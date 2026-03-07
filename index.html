@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lakos OS</title>
+    <style>
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --border-color: #000000;
+            --code-bg: #f0f0f0;
+        }
+
+        /* Опционально: темная тема */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #0a0a0a;
+                --text-color: #e0e0e0;
+                --border-color: #555555;
+                --code-bg: #1a1a1a;
+            }
+        }
+
+        body {
+            font-family: 'Courier New', Courier, monospace; /* Терминальный шрифт */
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 40px 20px;
+            line-height: 1.6;
+            font-size: 16px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            border: 2px solid var(--text-color);
+            padding: 40px;
+            box-shadow: 10px 10px 0px var(--text-color); /* Жесткая тень в стиле брутализм */
+        }
+
+        h1, h2, h3 {
+            font-weight: 900;
+            text-transform: uppercase;
+            margin-top: 2em;
+            margin-bottom: 0.5em;
+            border-bottom: 1px solid var(--text-color);
+            padding-bottom: 10px;
+        }
+
+        h1 {
+            font-size: 3em;
+            text-align: center;
+            border: none;
+            margin-top: 0;
+            letter-spacing: -2px;
+        }
+
+        h1::after {
+            content: '_';
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        p {
+            margin-bottom: 1.5em;
+        }
+
+        strong {
+            background-color: var(--text-color);
+            color: var(--bg-color);
+            padding: 0 4px;
+        }
+
+        code {
+            background-color: var(--code-bg);
+            padding: 2px 6px;
+            border: 1px solid var(--border-color);
+            font-family: inherit;
+            font-size: 0.9em;
+        }
+
+        pre {
+            background-color: var(--code-bg);
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+
+        ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        ul li {
+            position: relative;
+            padding-left: 20px;
+            margin-bottom: 8px;
+        }
+
+        ul li::before {
+            content: '>';
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+        }
+
+        a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        a:hover {
+            background-color: var(--text-color);
+            color: var(--bg-color);
+        }
+
+        .tag {
+            display: inline-block;
+            border: 1px solid var(--text-color);
+            padding: 2px 8px;
+            font-size: 0.8em;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 0.8em;
+            opacity: 0.7;
+        }
+
+        /* Адаптивность */
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+                border: none;
+                box-shadow: none;
+            }
+            h1 { font-size: 2em; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Lakos OS</h1>
+        <p><strong>Минималистичная учебная ОС для i386.</strong> Проект включает ядро, примитивный shell, tar‑базированную rootfs и небольшой набор пользовательских программ.</p>
+
+        <h2>Возможности</h2>
+        <ul>
+            <li>Загрузка через <code>Limine</code> (Multiboot1)</li>
+            <li>Текстовый терминал VGA с цветами, boot‑анимацией и информацией о системе</li>
+            <li>Shell с историей команд и автодополнением</li>
+            <li>Tar‑файловая система, вшитая в образ (<code>modules.tar</code>)</li>
+            <li>Базовый набор команд: навигация, работа с файлами, диски, пользователи</li>
+            <li>Простые пользовательские программы (<code>rootfs/bin</code>), запуск ELF‑бинарников</li>
+            <li>Примитивный GUI (команда <code>gui</code>)</li>
+        </ul>
+
+        <h2>Быстрый старт (сборка)</h2>
+        <pre><code>$ make iso</code></pre>
+        <p>Артефакты сборки:</p>
+        <ul>
+            <li><code>lakos.bin</code> — бинарь ядра</li>
+            <li><code>modules.tar</code> — архив rootfs</li>
+            <li><code>lakos.iso</code> — загрузочный ISO</li>
+        </ul>
+        <p>Очистка:</p>
+        <pre><code>$ make clean</code></pre>
+
+        <h2>Требования</h2>
+        <div>
+            <span class="tag">gcc (m32)</span>
+            <span class="tag">binutils</span>
+            <span class="tag">nasm</span>
+            <span class="tag">limine</span>
+            <span class="tag">xorriso</span>
+        </div>
+
+        <h2>Как пользоваться в системе</h2>
+        <p>При старте ОС запускается логин. По умолчанию доступен пользователь: <strong>root / root</strong></p>
+        
+        <p>Примеры команд в shell:</p>
+        <ul>
+            <li><strong>Навигация:</strong> <code>pwd</code>, <code>ls</code>, <code>cd</code></li>
+            <li><strong>Файловые операции:</strong> <code>cat</code>, <code>mkdir</code>, <code>touch</code>, <code>rm</code>, <code>cp</code>, <code>echo</code></li>
+            <li><strong>Информация:</strong> <code>ver</code>, <code>uname</code>, <code>date</code>, <code>whoami</code></li>
+            <li><strong>Диски:</strong> <code>disks</code>, <code>read_sector</code>, <code>write_sector</code>, <code>mount</code></li>
+            <li><strong>Пользователи:</strong> <code>useradd</code>, <code>userdel</code>, <code>login</code>, <code>passwd</code></li>
+            <li><strong>Крипто:</strong> <code>crypt -e &lt;key&gt; &lt;text&gt;</code>, <code>crypt -d &lt;key&gt; &lt;text&gt;</code></li>
+            <li><strong>Скрипты:</strong> <code>lsh &lt;script.lsh&gt;</code> - интерпретатор скриптов</li>
+            <li><strong>Прочее:</strong> <code>cls</code>, <code>shutdown</code>, <code>reboot</code>, <code>gui</code></li>
+        </ul>
+
+        <p>Доступные пользовательские программы в <code>/bin</code>:</p>
+        <p><code>hello</code>, <code>test</code>, <code>editor</code>, <code>calc</code> (простой калькулятор)</p>
+
+        <h2>Архитектура проекта</h2>
+        <pre><code>boot/        загрузчик и стартовый код
+kernel/      ядро, драйверы, shell, GUI
+rootfs/      содержимое файловой системы (вшивается в modules.tar)
+ass/         ассеты (изображения/иконки)</code></pre>
+
+        <h2>Авто‑релизы (GitHub Actions)</h2>
+        <p>Workflow <code>.github/workflows/deploy.yml</code> автоматически:</p>
+        <ul>
+            <li>вычисляет следующий тег версии vX.Y.Z;</li>
+            <li>создаёт и пушит тег;</li>
+            <li>собирает <code>lakos.iso</code> и <code>modules.tar</code>;</li>
+            <li>публикует GitHub Release с артефактами.</li>
+        </ul>
+
+        <h2>Лицензия</h2>
+        <p>См. LICENSE.</p>
+
+        <div class="footer">
+            Lakos OS &copy; 2023
+        </div>
+    </div>
+
+</body>
+</html>
