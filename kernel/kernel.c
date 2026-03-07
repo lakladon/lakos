@@ -65,6 +65,12 @@ const multiboot_header_t __attribute__((section(".multiboot"))) header = {
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 25
 
+// VGA registers for Attribute Controller
+#define VGA_AC_INDEX 0x3C0
+#define VGA_AC_WRITE 0x3C0
+#define VGA_AC_READ 0x3C1
+#define VGA_INSTAT_READ 0x3DA
+
 uint16_t* video_memory = (uint16_t*)VIDEO_MEMORY;
 
 int term_col = 0;

@@ -120,6 +120,19 @@ static void cmd_colorb(const char* args) {
     // Set exact RGB background color
     terminal_set_background_rgb((uint8_t)r, (uint8_t)g, (uint8_t)b);
     
+    // Debug: Print the actual RGB values being set
+    terminal_writestring("Debug: Setting RGB(");
+    char buf[4];
+    itoa(r, buf);
+    terminal_writestring(buf);
+    terminal_writestring(", ");
+    itoa(g, buf);
+    terminal_writestring(buf);
+    terminal_writestring(", ");
+    itoa(b, buf);
+    terminal_writestring(buf);
+    terminal_writestring(")\n");
+    
     terminal_writestring("Background color set to RGB(");
     char buf[4];
     itoa(r, buf);
