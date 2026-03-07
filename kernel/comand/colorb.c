@@ -72,7 +72,7 @@ static void cmd_colorb(const char* args) {
         return;
     }
     
-    // Check for hex color format #RRGGBB
+    // Check for hex color format #RRGGBB first
     if (*args == '#') {
         args++; // Skip #
         int hex_value = 0;
@@ -96,20 +96,38 @@ static void cmd_colorb(const char* args) {
         g = (hex_value >> 8) & 0xFF;
         b = hex_value & 0xFF;
     } else {
-        // Parse R
+        // Parse first number
         r = parse_number(&args);
         
-        // Skip separator
+        // Skip any separators
         skip_separator(&args);
         
-        // Parse G
-        g = parse_number(&args);
-        
-        // Skip separator
-        skip_separator(&args);
-        
-        // Parse B
-        b = parse_number(&args);
+        // Check if there are more arguments
+        if (*args != '\0') {
+            // Parse second number
+            g = parse_number(&args);
+            
+            // Skip any separators
+            skip_separator(&args);
+            
+            // Check if there are more arguments
+            if (*args != '\0') {
+                // Parse third number
+                b = parse_number(&args);
+            } else {
+                // Only two arguments provided, use first for R and G, set B to 0
+                b = 0;
+            }
+        } else {
+            // Only one argument provided, use it for all three colors (grayscale)
+            g = r;
+            b = r;
+            terminal_writestring("Single color value detected, using grayscale: ");
+            char buf[4];
+            itoa(r, buf);
+            terminal_writestring(buf);
+            terminal_writestring("\n");
+        }
     }
     
     // Clamp values to 0-255
@@ -120,7 +138,8 @@ static void cmd_colorb(const char* args) {
     // Set exact RGB background color
     terminal_set_background_rgb((uint8_t)r, (uint8_t)g, (uint8_t)b);
     
-    terminal_writestring("Background color set to RGB(");
+    // Debug: Print the actual RGB values being set
+    terminal_writestring("Debug: Setting RGB(");
     char buf[4];
     itoa(r, buf);
     terminal_writestring(buf);
@@ -130,5 +149,17 @@ static void cmd_colorb(const char* args) {
     terminal_writestring(", ");
     itoa(b, buf);
     terminal_writestring(buf);
+    terminal_writestring(")\n");
+    
+    terminal_writestring("Background color set to RGB(");
+    char buf2[4];
+    itoa(r, buf2);
+    terminal_writestring(buf2);
+    terminal_writestring(", ");
+    itoa(g, buf2);
+    terminal_writestring(buf2);
+    terminal_writestring(", ");
+    itoa(b, buf2);
+    terminal_writestring(buf2);
     terminal_writestring(")\n");
 }
