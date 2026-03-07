@@ -96,49 +96,37 @@ static void cmd_colorb(const char* args) {
         g = (hex_value >> 8) & 0xFF;
         b = hex_value & 0xFF;
     } else {
-        // Count arguments
-        const char* temp = args;
-        int arg_count = 0;
-        int in_word = 0;
+        // Parse first number
+        r = parse_number(&args);
         
-        while (*temp) {
-            if (*temp != ' ' && *temp != ',' && *temp != ';' && *temp != ':') {
-                if (!in_word) {
-                    arg_count++;
-                    in_word = 1;
-                }
-            } else {
-                in_word = 0;
-            }
-            temp++;
-        }
+        // Skip any separators
+        skip_separator(&args);
         
-        if (arg_count == 1) {
-            // Single argument - use it for all three colors (grayscale)
-            int value = parse_number(&args);
-            if (value < 0) value = 0; else if (value > 255) value = 255;
-            r = g = b = value;
-            terminal_writestring("Single color value detected, using grayscale: ");
-            char buf[4];
-            itoa(value, buf);
-            terminal_writestring(buf);
-            terminal_writestring("\n");
-        } else {
-            // Multiple arguments - parse them normally
-            // Parse R
-            r = parse_number(&args);
-            
-            // Skip separator
-            skip_separator(&args);
-            
-            // Parse G
+        // Check if there are more arguments
+        if (*args != '\0') {
+            // Parse second number
             g = parse_number(&args);
             
-            // Skip separator
+            // Skip any separators
             skip_separator(&args);
             
-            // Parse B
-            b = parse_number(&args);
+            // Check if there are more arguments
+            if (*args != '\0') {
+                // Parse third number
+                b = parse_number(&args);
+            } else {
+                // Only two arguments provided, use first for R and G, set B to 0
+                b = 0;
+            }
+        } else {
+            // Only one argument provided, use it for all three colors (grayscale)
+            g = r;
+            b = r;
+            terminal_writestring("Single color value detected, using grayscale: ");
+            char buf[4];
+            itoa(r, buf);
+            terminal_writestring(buf);
+            terminal_writestring("\n");
         }
     }
     
