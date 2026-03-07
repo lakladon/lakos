@@ -134,14 +134,14 @@ static void cmd_colorb(const char* args) {
     terminal_writestring(")\n");
     
     terminal_writestring("Background color set to RGB(");
-    char buf[4];
-    itoa(r, buf);
-    terminal_writestring(buf);
+    char buf2[4];
+    itoa(r, buf2);
+    terminal_writestring(buf2);
     terminal_writestring(", ");
-    itoa(g, buf);
-    terminal_writestring(buf);
+    itoa(g, buf2);
+    terminal_writestring(buf2);
     terminal_writestring(", ");
-    itoa(b, buf);
-    terminal_writestring(buf);
+    itoa(b, buf2);
+    terminal_writestring(buf2);
     terminal_writestring(")\n");
 }
