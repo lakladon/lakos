@@ -82,12 +82,10 @@ all: iso
 lakos.bin: $(OBJ)
 	$(LD) $(LDFLAGS) -o $@ $(OBJ)
 
-.PHONY: all iso run modules.tar user_programs clean
+.PHONY: all iso uefi run modules.tar user_programs clean
 modules.tar: user_programs
 	rm -f modules.tar
-	cd rootfs && find . -type d ! -path . | tar --no-recursion -cf ../$@ --transform 's|^\./||' -T -
-	cd rootfs && find . -type f \( -name "*.c" -o -name "*.h" \) | tar -rf ../$@ --transform 's|^\./||' -T -
-	cd rootfs && find . -type f ! \( -name "*.c" -o -name "*.h" \) | tar -rf ../$@ --transform 's|^\./||' -T -
+	cd rootfs && tar -cf ../$@ .
 
 user_programs: $(USER_BIN)
 
@@ -128,6 +126,27 @@ iso: lakos.bin modules.tar
 		exit 1; \
 	fi
 
+# Create UEFI bootable disk image
+uefi: lakos.bin modules.tar
+	@test -f "$(LIMINE_BOOTX64)" || (echo "Missing $(LIMINE_BOOTX64). Install Limine package." && exit 1)
+	@echo "Creating UEFI disk image..."
+	@rm -rf uefidir
+	@mkdir -p uefidir/EFI/BOOT uefidir/boot
+	cp lakos.bin uefidir/boot/
+	cp modules.tar uefidir/boot/
+	cp boot/limine.conf uefidir/
+	cp "$(LIMINE_BOOTX64)" uefidir/EFI/BOOT/
+	@if [ -f "$(LIMINE_BOOTIA32)" ]; then cp "$(LIMINE_BOOTIA32)" uefidir/EFI/BOOT/; fi
+	@echo "Creating 64MB UEFI disk image..."
+	@dd if=/dev/zero of=lakos-uefi.img bs=1M count=64 2>/dev/null || fsutil file createnew lakos-uefi.img 67108864
+	@echo "UEFI disk image created: lakos-uefi.img"
+	@echo "Contents are in uefidir/ folder"
+	@echo ""
+	@echo "To create a bootable USB drive:"
+	@echo "  1. Format USB as FAT32 with GPT partition table"
+	@echo "  2. Copy uefidir/* to the USB drive root"
+	@echo ""
+
 run: iso
 	qemu-system-i386 -cdrom lakos.iso -boot d -m 512M -nographic
 
@@ -147,5 +166,5 @@ modules.o: modules.tar
 	$(OBJCOPY) -I binary -O elf32-i386 -B i386 $< $@
 
 clean:
-	rm -f $(OBJ) modules.o lakos.bin modules.tar lakos.iso
-	rm -rf isodir
+	rm -f $(OBJ) modules.o lakos.bin modules.tar lakos.iso lakos-uefi.img
+	rm -rf isodir uefidir
