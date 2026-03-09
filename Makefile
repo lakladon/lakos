@@ -82,7 +82,7 @@ all: iso
 lakos.bin: $(OBJ)
 	$(LD) $(LDFLAGS) -o $@ $(OBJ)
 
-.PHONY: all iso uefi run modules.tar user_programs clean
+.PHONY: all iso uefi uefi-iso run modules.tar user_programs clean
 modules.tar: user_programs
 	rm -f modules.tar
 	cd rootfs && tar -cf ../$@ .
@@ -147,6 +147,26 @@ uefi: lakos.bin modules.tar
 	@echo "  2. Copy uefidir/* to the USB drive root"
 	@echo ""
 
+# Create UEFI-only ISO image
+uefi-iso: lakos.bin modules.tar
+	@test -f "$(LIMINE_BOOTX64)" || (echo "Missing $(LIMINE_BOOTX64). Install Limine package." && exit 1)
+	@test -f "$(LIMINE_UEFI_CD)" || (echo "Missing $(LIMINE_UEFI_CD). Install Limine package." && exit 1)
+	@echo "Creating UEFI ISO image..."
+	@rm -rf uefiisodir
+	@mkdir -p uefiisodir/EFI/BOOT uefiisodir/boot/limine
+	cp lakos.bin uefiisodir/boot/
+	cp modules.tar uefiisodir/boot/
+	cp boot/limine.conf uefiisodir/
+	cp "$(LIMINE_BOOTX64)" uefiisodir/EFI/BOOT/
+	@if [ -f "$(LIMINE_BOOTIA32)" ]; then cp "$(LIMINE_BOOTIA32)" uefiisodir/EFI/BOOT/; fi
+	cp "$(LIMINE_UEFI_CD)" uefiisodir/boot/limine/
+	xorriso -as mkisofs \
+		--efi-boot boot/limine/limine-uefi-cd.bin \
+		-efi-boot-part \
+		--efi-boot-image \
+		uefiisodir -o lakos-uefi.iso
+	@echo "UEFI ISO created: lakos-uefi.iso"
+
 run: iso
 	qemu-system-i386 -cdrom lakos.iso -boot d -m 512M -nographic
 
@@ -166,5 +186,5 @@ modules.o: modules.tar
 	$(OBJCOPY) -I binary -O elf32-i386 -B i386 $< $@
 
 clean:
-	rm -f $(OBJ) modules.o lakos.bin modules.tar lakos.iso lakos-uefi.img
-	rm -rf isodir uefidir
+	rm -f $(OBJ) modules.o lakos.bin modules.tar lakos.iso lakos-uefi.img lakos-uefi.iso
+	rm -rf isodir uefidir uefiisodir
