@@ -65,6 +65,12 @@ const multiboot_header_t __attribute__((section(".multiboot"))) header = {
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 25
 
+// VGA registers for Attribute Controller
+#define VGA_AC_INDEX 0x3C0
+#define VGA_AC_WRITE 0x3C0
+#define VGA_AC_READ 0x3C1
+#define VGA_INSTAT_READ 0x3DA
+
 uint16_t* video_memory = (uint16_t*)VIDEO_MEMORY;
 
 int term_col = 0;
@@ -184,10 +190,23 @@ void terminal_set_background(uint8_t bg_color) {
     }
 }
 
+// Disable blink mode to allow bright backgrounds (indices 8-15)
+static void vga_disable_blink() {
+    // Read Attribute Controller Mode Control Register (index 0x10)
+    inb(VGA_INSTAT_READ);  // Reset flip-flop
+    outb(VGA_AC_INDEX, 0x10);
+    uint8_t mode = inb(VGA_AC_READ);
+    // Set bit 3 to enable background intensity (disable blink)
+    outb(VGA_AC_INDEX, 0x10);
+    outb(VGA_AC_WRITE, mode | 0x08);
+}
+
 // Set exact RGB background color by reprogramming VGA palette
 void terminal_set_background_rgb(uint8_t r, uint8_t g, uint8_t b) {
-    // Use palette index 8 (normally dark grey) for custom background color
-    // Index 8 is less commonly used for text, so it's safer to modify
+    // Disable blink mode to allow using palette index 8 for background
+    vga_disable_blink();
+    
+    // Use palette index 8 for custom background color
     vga_set_palette_color(8, r, g, b);
     
     // Store the background index

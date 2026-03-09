@@ -516,6 +516,12 @@ static int load_script_from_tar(const char* filename) {
 // External function for reading input
 extern void read_line(char* buffer, int max, int echo);
 
+// Check if line starts a block (if/while)
+static int is_block_start(const char* line) {
+    line = skip_whitespace(line);
+    return strncmp(line, "if ", 3) == 0 || strncmp(line, "while ", 6) == 0;
+}
+
 // Interactive REPL mode
 static void lsh_repl() {
     char line[MAX_LINE_LEN];
@@ -547,12 +553,57 @@ static void lsh_repl() {
             terminal_writestring("  help         - Show this help\n");
             terminal_writestring("  if/else/fi   - Conditional\n");
             terminal_writestring("  while/done   - Loop\n");
-            terminal_writestring("  Any other command is executed as shell command\n");
             continue;
         }
         
-        // Execute the line
-        execute_line(trimmed);
+        // Check if starting a block (if/while)
+        if (is_block_start(trimmed)) {
+            // Collect block lines
+            script_line_count = 0;
+            
+            // Add first line
+            strncpy(script_lines[script_line_count], trimmed, MAX_LINE_LEN - 1);
+            script_lines[script_line_count][MAX_LINE_LEN - 1] = '\0';
+            script_line_count++;
+            
+            int if_depth = 0;
+            int while_depth = 0;
+            
+            if (strncmp(trimmed, "if ", 3) == 0) if_depth = 1;
+            if (strncmp(trimmed, "while ", 6) == 0) while_depth = 1;
+            
+            // Read until block is closed
+            while (if_depth > 0 || while_depth > 0) {
+                if (if_depth > 0) {
+                    terminal_writestring("...> ");
+                } else {
+                    terminal_writestring("...> ");
+                }
+                read_line(line, MAX_LINE_LEN - 1, 1);
+                trimmed = skip_whitespace(line);
+                
+                if (strlen(trimmed) == 0) continue;
+                
+                // Add line to script
+                if (script_line_count < MAX_LINES) {
+                    strncpy(script_lines[script_line_count], trimmed, MAX_LINE_LEN - 1);
+                    script_lines[script_line_count][MAX_LINE_LEN - 1] = '\0';
+                    script_line_count++;
+                }
+                
+                // Track depth
+                if (strncmp(trimmed, "if ", 3) == 0) if_depth++;
+                else if (strcmp(trimmed, "fi") == 0) if_depth--;
+                else if (strncmp(trimmed, "while ", 6) == 0) while_depth++;
+                else if (strcmp(trimmed, "done") == 0) while_depth--;
+            }
+            
+            // Execute the block
+            execute_block(0, script_line_count);
+        } else {
+            // Execute single line
+            execute_line(trimmed);
+        }
     }
 }
 
