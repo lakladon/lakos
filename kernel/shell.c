@@ -30,8 +30,46 @@ unsigned char kbd_map_shift[128] = {
     '|', 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<', '>', '?', 0, '*', 0, ' ', 0
 };
 
+// Russian keyboard layout (ЙЦУКЕНГШЩЗХЪ)
+// Using extended ASCII codes: 128-191 for Cyrillic (see font.c)
+// А=128, Б=129, В=130, Г=131, Д=132, Е=133, Ё=134, Ж=135, З=136, И=137, Й=138
+// К=139, Л=140, М=141, Н=142, О=143, П=144, Р=145, С=146, Т=147, У=148, Ф=149
+// Х=150, Ц=151, Ч=152, Ш=153, Щ=154, Ъ=155, Ы=156, Ь=157, Э=158, Ю=159, Я=160
+// а=161, б=162, в=163, г=164, д=165, е=166, ё=167, ж=168, з=169, и=170, й=171
+// к=172, л=173, м=174, н=175, о=176, п=177, р=178, с=179, т=180, у=181, ф=182
+// х=183, ц=184, ч=185, ш=186, щ=187, ъ=188, ы=189, ь=190, э=191, ю=192, я=193
+
+// Russian keyboard layout (lowercase) - standard ЙЦУКЕН layout
+// Scancodes: Q=16, W=17, E=18, R=19, T=20, Y=21, U=22, I=23, O=24, P=25, [=26, ]=27
+//            A=30, S=31, D=32, F=33, G=34, H=35, J=36, K=37, L=38, ;=39, '=40
+//            Z=44, X=45, C=46, V=47, B=48, N=49, M=50, ,=51, .=52
+// Font codes from font.c:
+//   а=160, б=161, в=162, г=163, д=164, е=165, ё=166, ж=167, з=168, и=169, й=170
+//   к=171, л=172, м=173, н=174, о=175, п=176, р=177, с=178, т=179, у=180, ф=181
+//   х=182, ц=183, ч=184, ш=185, щ=186, ъ=187, ы=188, ь=189, э=190, ю=191
+unsigned char kbd_map_ru[128] = {
+    0,  27, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
+    '\t', 170, 183, 180, 171, 165, 174, 163, 185, 186, 168, 182, 187, 0, '\n',  // йцукенгшщзхъ
+    0, 181, 188, 162, 160, 176, 177, 175, 172, 164, 167, 190, 0,               // фывапролджэ
+    '\\', 191, 184, 178, 173, 169, 179, 189, 161, 191, 0, '*', 0, ' ', 0       // ячсмитьбю (я=191 temporarily)
+};
+
+// Russian keyboard layout (uppercase) - with Shift
+// Font codes from font.c:
+//   А=128, Б=129, В=130, Г=131, Д=132, Е=133, Ё=134, Ж=135, З=136, И=137, Й=138
+//   К=139, Л=140, М=141, Н=142, О=143, П=144, Р=145, С=146, Т=147, У=148, Ф=149
+//   Х=150, Ц=151, Ч=152, Ш=153, Щ=154, Ъ=155, Ы=156, Ь=157, Э=158, Ю=159
+unsigned char kbd_map_ru_shift[128] = {
+    0,  27, '!', '"', '#', ';', '%', ':', '?', '*', '(', ')', '_', '+', '\b',
+    '\t', 138, 151, 148, 139, 133, 142, 131, 153, 154, 136, 150, 155, 0, '\n',  // ЙЦУКЕНГШЩЗХЪ
+    0, 149, 156, 130, 128, 144, 145, 143, 140, 132, 135, 158, 0,               // ФЫВАПРОЛДЖЭ
+    '/', 159, 152, 146, 141, 137, 147, 157, 129, 159, 0, '*', 0, ' ', 0        // ЯЧСМИТЬБЮ (Я=159 temporarily)
+};
+
 static int shift_pressed = 0;
 static int caps_locked = 0;
+static int alt_pressed = 0;
+static int current_layout = 0; // 0 = English, 1 = Russian
 
 void read_line(char* buffer, int max, int echo) {
     int ptr = 0;
@@ -512,7 +550,27 @@ void shell_main() {
         
         if (inb(0x64) & 0x1) {
             uint8_t scancode = inb(0x60);
+            
+            // Track Alt key (scancode 56 = Left Alt, 0x38 = release with 0x80)
+            if ((scancode & 0x7F) == 56) {
+                alt_pressed = !(scancode & 0x80);
+            }
+            
+            // Track Shift keys (scancode 42 = Left Shift, 54 = Right Shift)
             if ((scancode & 0x7F) == 42 || (scancode & 0x7F) == 54) {
+                // Check for Alt+Shift combination to switch layout
+                if (!(scancode & 0x80) && alt_pressed) {
+                    // Alt+Shift pressed - toggle layout
+                    current_layout = !current_layout;
+                    // Display layout indicator
+                    terminal_writestring("\n[Layout: ");
+                    terminal_writestring(current_layout ? "RU" : "EN");
+                    terminal_writestring("]\n");
+                    display_prompt();
+                    if (shell_ptr > 0) {
+                        terminal_writestring(shell_buf);
+                    }
+                }
                 shift_pressed = !(scancode & 0x80);
             } else if (scancode == 58) {
                 if (!(scancode & 0x80)) caps_locked = !caps_locked;
@@ -530,7 +588,16 @@ void shell_main() {
                 } else {
                     int is_letter = (scancode >= 16 && scancode <= 25) || (scancode >= 30 && scancode <= 38) || (scancode >= 44 && scancode <= 50);
                     int uppercase = shift_pressed || (caps_locked && is_letter);
-                    char c = uppercase ? kbd_map_shift[scancode] : kbd_map[scancode];
+                    
+                    char c;
+                    if (current_layout == 0) {
+                        // English layout
+                        c = uppercase ? kbd_map_shift[scancode] : kbd_map[scancode];
+                    } else {
+                        // Russian layout
+                        c = uppercase ? kbd_map_ru_shift[scancode] : kbd_map_ru[scancode];
+                    }
+                    
                     if (c != 0) shell_handle_key(c);
                 }
             }
