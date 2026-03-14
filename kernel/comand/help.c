@@ -6,7 +6,7 @@ static void cmd_help(const char* args) {
         return;
     }
 
-    terminal_writestring("Lakos OS Commands: help, man, cls, ver, pwd, ls, cd, echo, uname, date, cat, mkdir, disks, read_sector, write_sector, mount, useradd, passwd, login, userdel, crypt, whoami, touch, rm, cp, shutdown, reboot, gui, colorb\nAvailable programs: hello, test, editor, calc\nTip: <command> --help or man <command>\n");
+    terminal_writestring("Lakos OS Commands: help, man, cls, ver, pwd, ls, cd, echo, uname, date, cat, mkdir, disks, read_sector, write_sector, mount, useradd, passwd, login, userdel, crypt, whoami, touch, rm, cp, shutdown, reboot, gui, colorb, cmatrix\nAvailable programs: hello, test, editor, calc\nTip: <command> --help or man <command>\n");
 }
 
 static void cmd_man(const char* args) {
@@ -75,6 +75,8 @@ static void cmd_man(const char* args) {
         terminal_writestring("cls - clear screen\nusage: cls\n");
     } else if (strcmp(args, "colorb") == 0) {
         terminal_writestring("colorb - set background color by RGB\nusage: colorb <R> <G> <B> | #RRGGBB\nformats: 255 128 0 | 0xFF 0x80 0 | 255,128,0 | #FF8000\n");
+    } else if (strcmp(args, "cmatrix") == 0) {
+        terminal_writestring("cmatrix - show Matrix digital rain effect\nusage: cmatrix\nPress any key to exit\n");
     } else {
         terminal_writestring("man: no manual entry for '");
         terminal_writestring(args);

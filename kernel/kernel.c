@@ -273,6 +273,29 @@ void terminal_putchar_at(int col, int row, char c) {
     }
 }
 
+// Write a character at specific position with specific color
+void terminal_putchar_at_color(int col, int row, char c, uint8_t color) {
+    if (row >= 0 && row < VGA_HEIGHT && col >= 0 && col < VGA_WIDTH) {
+        video_memory[row * VGA_WIDTH + col] = (uint16_t)c | (uint16_t)color << 8;
+    }
+}
+
+// Get terminal size
+void terminal_get_size(int* width, int* height) {
+    if (width) *width = VGA_WIDTH;
+    if (height) *height = VGA_HEIGHT;
+}
+
+// Set terminal color
+void terminal_set_color(uint8_t color) {
+    current_attr = color;
+}
+
+// Get current terminal color
+uint8_t terminal_get_color() {
+    return current_attr;
+}
+
 // Get character at specific position
 char terminal_getchar_at(int col, int row) {
     if (row >= 0 && row < VGA_HEIGHT && col >= 0 && col < VGA_WIDTH) {
