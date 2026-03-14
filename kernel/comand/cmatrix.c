@@ -1,6 +1,6 @@
 /*
  * Lakos OS - cmatrix command
- * Matrix digital rain effect
+ * Matrix digital rain effect - improved version
  */
 
 #include <stdint.h>
@@ -8,189 +8,138 @@
 // External functions from terminal
 extern void terminal_putchar_at_color(int col, int row, char c, uint8_t color);
 extern void terminal_get_size(int* width, int* height);
-extern uint8_t terminal_get_color();
 extern void terminal_set_color(uint8_t color);
 extern void terminal_writestring(const char* s);
 extern void terminal_initialize();
 extern uint8_t inb(uint16_t port);
 
-// Green colors for matrix effect (VGA text mode colors: foreground | (background << 4))
-#define MATRIX_GREEN 0x0A      // Light green on black
-#define MATRIX_DARK_GREEN 0x02 // Dark green on black  
-#define MATRIX_BRIGHT 0x0F     // White on black (for head)
-#define MATRIX_BLACK 0x00      // Black on black (for clearing)
+// VGA text mode colors (foreground on black background)
+#define COLOR_BLACK     0x00
+#define COLOR_DARK_GREEN 0x02
+#define COLOR_GREEN      0x0A
+#define COLOR_BRIGHT     0x0F
 
-// Matrix characters
+// Matrix characters - more variety
 static const char matrix_chars[] = {
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 
-    'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
-    'U', 'V', 'W', 'X', 'Y', 'Z',
-    '!', '@', '#', '$', '%', '&', '*', '+', '-', '=',
-    '|', '~', '^', '_', '<', '>', '/', '\\', '{', '}',
-    '[', ']', '(', ')', '?', ':', ';', '"', '\''
+    '0','1','2','3','4','5','6','7','8','9',
+    'A','B','C','D','E','F','G','H','I','J','K','L','M',
+    'N','O','P','Q','R','S','T','U','V','W','X','Y','Z',
+    'a','b','c','d','e','f','g','h','i','j','k','l','m',
+    'n','o','p','q','r','s','t','u','v','w','x','y','z',
+    '!','@','#','$','%','&','*','+','-','=','|','~'
 };
 #define NUM_CHARS (sizeof(matrix_chars) / sizeof(matrix_chars[0]))
 
-// Column state for matrix rain
-static int column_y[80];       // Y position of the head of each column
-static int column_speed[80];   // Speed of each column
-static int column_length[80];  // Length of each column trail
-static char column_chars[80][25]; // Characters in each column
+// Column state
+static int col_head[80];      // Y position of head (can be negative)
+static int col_speed[80];     // Fall speed
+static int col_length[80];    // Trail length
+static int col_active[80];    // Is column active
 
-// Simple random number generator
-static unsigned int rand_seed = 12345;
+// Random generator
+static unsigned int rnd = 1;
 
-static int matrix_rand() {
-    rand_seed = rand_seed * 1103515245 + 12345;
-    return (rand_seed >> 16) & 0x7FFF;
+static int rand_next(void) {
+    rnd = rnd * 1103515245 + 12345;
+    return (rnd >> 16) & 0x7FFF;
 }
 
-// Check if a key has been pressed
-static int kbhit() {
+// Check keyboard
+static int key_pressed(void) {
     return inb(0x64) & 0x01;
 }
 
-// Get keyboard scancode
-static uint8_t get_scancode() {
+static uint8_t read_key(void) {
     return inb(0x60);
 }
 
-// Simple delay
-static void matrix_delay(int count) {
-    for (volatile int i = 0; i < count * 5000; i++) {
+// Short delay
+static void short_delay(void) {
+    for (volatile int i = 0; i < 800; i++) {
         __asm__ volatile("nop");
     }
 }
 
-// Clear screen with black
-static void matrix_clear_screen(int width, int height) {
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            terminal_putchar_at_color(x, y, ' ', MATRIX_BLACK);
-        }
-    }
-}
-
-// Initialize columns
-static void init_columns(int width, int height) {
-    for (int x = 0; x < width && x < 80; x++) {
-        column_y[x] = -(matrix_rand() % height);  // Start above screen
-        column_speed[x] = 1 + (matrix_rand() % 2);  // Random speed 1-2
-        column_length[x] = 5 + (matrix_rand() % 10);  // Random length 5-14
-        
-        // Initialize characters for this column
-        for (int y = 0; y < height && y < 25; y++) {
-            column_chars[x][y] = matrix_chars[matrix_rand() % NUM_CHARS];
-        }
-    }
-}
-
-// Update and draw one frame
-static void matrix_update_frame(int width, int height) {
-    // Update each column
-    for (int x = 0; x < width && x < 80; x++) {
-        // Move column down
-        column_y[x] += column_speed[x];
-        
-        // If column is completely off screen, reset it
-        if (column_y[x] - column_length[x] >= height) {
-            column_y[x] = -(matrix_rand() % height);
-            column_speed[x] = 1 + (matrix_rand() % 2);
-            column_length[x] = 5 + (matrix_rand() % 10);
-            
-            // Regenerate characters
-            for (int y = 0; y < height && y < 25; y++) {
-                column_chars[x][y] = matrix_chars[matrix_rand() % NUM_CHARS];
-            }
-        }
-        
-        // Draw the column trail
-        int head_y = column_y[x];
-        
-        // Draw trail from head going up
-        for (int i = 0; i < column_length[x]; i++) {
-            int trail_y = head_y - i;
-            
-            if (trail_y >= 0 && trail_y < height) {
-                char c = column_chars[x][trail_y % 25];
-                uint8_t color;
-                
-                if (i == 0) {
-                    // Head is bright white
-                    color = MATRIX_BRIGHT;
-                } else if (i == 1) {
-                    // Second character is bright green
-                    color = MATRIX_GREEN;
-                } else {
-                    // Trail fades to dark green
-                    color = MATRIX_DARK_GREEN;
-                }
-                
-                terminal_putchar_at_color(x, trail_y, c, color);
-            }
-        }
-        
-        // Clear the character that was above the trail
-        int clear_y = head_y - column_length[x];
-        if (clear_y >= 0 && clear_y < height) {
-            terminal_putchar_at_color(x, clear_y, ' ', MATRIX_BLACK);
-        }
-        
-        // Randomly change characters in the column
-        if ((matrix_rand() % 10) == 0) {
-            int change_y = matrix_rand() % (column_length[x]);
-            int actual_y = head_y - change_y;
-            if (actual_y >= 0 && actual_y < height && actual_y < 25) {
-                column_chars[x][actual_y % 25] = matrix_chars[matrix_rand() % NUM_CHARS];
-            }
-        }
-    }
+// Get random character
+static char rand_char(void) {
+    return matrix_chars[rand_next() % NUM_CHARS];
 }
 
 static void cmd_cmatrix(const char* args) {
     (void)args;
     
-    int width, height;
-    terminal_get_size(&width, &height);
-    
-    if (width <= 0 || height <= 0) {
-        width = 80;
-        height = 25;
-    }
-    
-    // Initialize random seed with a varying value
-    rand_seed = 12345;
+    int w = 80, h = 25;
+    terminal_get_size(&w, &h);
+    if (w > 80) w = 80;
+    if (h > 25) h = 25;
     
     // Clear screen
-    matrix_clear_screen(width, height);
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            terminal_putchar_at_color(x, y, ' ', COLOR_BLACK);
+        }
+    }
     
     // Initialize columns
-    init_columns(width, height);
+    for (int x = 0; x < w; x++) {
+        col_head[x] = -(rand_next() % h);  // Start above screen
+        col_speed[x] = 1 + (rand_next() % 3);  // Speed 1-3
+        col_length[x] = 4 + (rand_next() % 12);  // Length 4-15
+        col_active[x] = 1;
+    }
     
-    // Small delay before starting
-    matrix_delay(100);
-    
-    // Main loop
+    // Main animation loop
     while (1) {
-        // Check for key press to exit
-        if (kbhit()) {
-            uint8_t scancode = get_scancode();
-            // Any key press (not release) exits
-            if (!(scancode & 0x80)) {
-                break;
+        // Exit on any key
+        if (key_pressed()) {
+            uint8_t sc = read_key();
+            if (!(sc & 0x80)) break;
+        }
+        
+        // Update each column
+        for (int x = 0; x < w; x++) {
+            // Move head down
+            col_head[x] += col_speed[x];
+            
+            // Reset if completely off screen
+            if (col_head[x] - col_length[x] > h) {
+                col_head[x] = -(rand_next() % (h/2));
+                col_speed[x] = 1 + (rand_next() % 3);
+                col_length[x] = 4 + (rand_next() % 12);
+            }
+            
+            int head = col_head[x];
+            int len = col_length[x];
+            
+            // Draw trail
+            for (int i = 0; i < len; i++) {
+                int y = head - i;
+                if (y < 0 || y >= h) continue;
+                
+                uint8_t color;
+                if (i == 0) {
+                    color = COLOR_BRIGHT;      // White head
+                } else if (i == 1) {
+                    color = COLOR_GREEN;        // Bright green
+                } else {
+                    color = COLOR_DARK_GREEN;   // Dark green trail
+                }
+                
+                terminal_putchar_at_color(x, y, rand_char(), color);
+            }
+            
+            // Clear above trail
+            int clear_y = head - len;
+            if (clear_y >= 0 && clear_y < h) {
+                terminal_putchar_at_color(x, clear_y, ' ', COLOR_BLACK);
             }
         }
         
-        // Update and draw frame
-        matrix_update_frame(width, height);
-        
-        // Delay between frames
-        matrix_delay(3);
+        short_delay();
     }
     
     // Restore terminal
-    terminal_set_color(0x07);  // Light gray on black
+    terminal_set_color(0x07);
     terminal_initialize();
-    terminal_writestring("Matrix effect ended.\n");
+    terminal_writestring("Matrix stopped.\n");
 }
