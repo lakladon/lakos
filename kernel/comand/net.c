@@ -1,10 +1,6 @@
-// Network commands for Lakos OS
-// ifconfig, ping, wget
-
 #include <stdint.h>
 #include "../drivers/io.h"
 #include "../drivers/net.h"
-
 extern void terminal_writestring(const char*);
 extern void terminal_putchar(char c);
 extern net_interface_t* rtl8139_get_interface();
@@ -20,8 +16,6 @@ extern int net_is_available();
 extern int parse_ip(const char* str, uint8_t* ip);
 extern void format_ip(const uint8_t* ip, char* buf);
 extern void format_mac(const uint8_t* mac, char* buf);
-
-// Common PCI ports for RTL8139 in QEMU
 static const uint16_t rtl8139_ports[] = {
     0xC000, 0xC100, 0xC200, 0xC300,
     0xC400, 0xC500, 0xC600, 0xC700,
@@ -30,26 +24,18 @@ static const uint16_t rtl8139_ports[] = {
     0xE000, 0xE100, 0xE200, 0xE300,
     0
 };
-
-// Check if RTL8139 is present at given port
 static int check_rtl8139(uint16_t port) {
-    // Try to read MAC address - if all zeros or all 0xFF, not present
     uint8_t mac[6];
     int all_zero = 1;
     int all_ff = 1;
-    
     for (int i = 0; i < 6; i++) {
         mac[i] = inb(port + i);
         if (mac[i] != 0) all_zero = 0;
         if (mac[i] != 0xFF) all_ff = 0;
     }
-    
     return !all_zero && !all_ff;
 }
-
-// Initialize network card
 static int init_network() {
-    // Try common I/O ports for RTL8139
     for (int i = 0; rtl8139_ports[i] != 0; i++) {
         if (check_rtl8139(rtl8139_ports[i])) {
             if (rtl8139_init(rtl8139_ports[i])) {
@@ -60,8 +46,6 @@ static int init_network() {
     }
     return 0;
 }
-
-// ifconfig command - show/configure network interface
 void cmd_ifconfig(const char* args) {
     if (!net_is_available()) {
         terminal_writestring("Initializing network...\n");
@@ -71,38 +55,27 @@ void cmd_ifconfig(const char* args) {
             return;
         }
     }
-    
     net_interface_t* iface = net_get_interface();
     if (!iface) {
         terminal_writestring("Error: No network interface\n");
         return;
     }
-    
-    // Parse arguments for configuration
     if (args && *args) {
         char cmd[32];
         char value[64];
         int i = 0;
-        
-        // Extract command
         while (args[i] && args[i] != ' ' && i < 31) {
             cmd[i] = args[i];
             i++;
         }
         cmd[i] = '\0';
-        
-        // Skip space
         while (args[i] == ' ') i++;
-        
-        // Extract value
         int j = 0;
         while (args[i] && j < 63) {
             value[j++] = args[i++];
         }
         value[j] = '\0';
-        
         uint8_t ip[4];
-        
         if (strcmp(cmd, "ip") == 0) {
             if (parse_ip(value, ip)) {
                 rtl8139_set_ip(ip[0], ip[1], ip[2], ip[3]);
@@ -147,8 +120,6 @@ void cmd_ifconfig(const char* args) {
         }
         return;
     }
-    
-    // Display interface info
     terminal_writestring(iface->name);
     terminal_writestring(": ");
     if (iface->enabled) {
@@ -156,50 +127,37 @@ void cmd_ifconfig(const char* args) {
     } else {
         terminal_writestring("DOWN\n");
     }
-    
     char buf[32];
-    
     terminal_writestring("  MAC: ");
     format_mac(iface->mac, buf);
     terminal_writestring(buf);
     terminal_writestring("\n");
-    
     terminal_writestring("  IP: ");
     format_ip(iface->ip, buf);
     terminal_writestring(buf);
     terminal_writestring("\n");
-    
     terminal_writestring("  Subnet: ");
     format_ip(iface->subnet, buf);
     terminal_writestring(buf);
     terminal_writestring("\n");
-    
     terminal_writestring("  Gateway: ");
     format_ip(iface->gateway, buf);
     terminal_writestring(buf);
     terminal_writestring("\n");
-    
     terminal_writestring("  DNS: ");
     format_ip(iface->dns, buf);
     terminal_writestring(buf);
     terminal_writestring("\n");
 }
-
-// External ARP cache access
 extern uint8_t* arp_lookup(const uint8_t* ip);
 extern void arp_add(const uint8_t* ip, const uint8_t* mac);
 extern void send_arp_request(const uint8_t* target_ip);
-
-// ARP entry structure (must match tcpip.c)
 typedef struct {
     uint8_t ip[4];
     uint8_t mac[6];
     int valid;
 } arp_entry_t;
-
 extern int arp_get_cache(arp_entry_t* entries, int max_entries);
-
-// Check if IP is in same subnet
 static int is_same_subnet_local(const uint8_t* ip, net_interface_t* iface) {
     for (int i = 0; i < 4; i++) {
         if ((ip[i] & iface->subnet[i]) != (iface->ip[i] & iface->subnet[i])) {
@@ -208,20 +166,15 @@ static int is_same_subnet_local(const uint8_t* ip, net_interface_t* iface) {
     }
     return 1;
 }
-
-// Compare IP addresses (local copy since tcpip.c has static version)
 static int ip_equal_local(const uint8_t* a, const uint8_t* b) {
     return a[0] == b[0] && a[1] == b[1] && a[2] == b[2] && a[3] == b[3];
 }
-
-// ping command - send ICMP echo request
 void cmd_ping(const char* args) {
     if (!args || !*args) {
         terminal_writestring("Usage: ping <ip address>\n");
         terminal_writestring("Example: ping 10.0.2.2\n");
         return;
     }
-    
     if (!net_is_available()) {
         terminal_writestring("Initializing network...\n");
         if (!init_network()) {
@@ -229,8 +182,6 @@ void cmd_ping(const char* args) {
             return;
         }
     }
-    
-    // Parse IP address
     uint8_t dest_ip[4];
     if (!parse_ip(args, dest_ip)) {
         terminal_writestring("Invalid IP address: ");
@@ -238,21 +189,15 @@ void cmd_ping(const char* args) {
         terminal_writestring("\n");
         return;
     }
-    
     net_interface_t* iface = net_get_interface();
-    
     char buf[32];
     terminal_writestring("PING ");
     format_ip(dest_ip, buf);
     terminal_writestring(buf);
     terminal_writestring("\n");
-    
-    // Check if pinging ourselves
     if (ip_equal_local(dest_ip, iface->ip)) {
         terminal_writestring("Local ping - packets stay on host\n");
     }
-    
-    // Determine which IP we need ARP for (gateway or direct)
     const uint8_t* arp_target_ip = dest_ip;
     if (!is_same_subnet_local(dest_ip, iface)) {
         arp_target_ip = iface->gateway;
@@ -261,8 +206,6 @@ void cmd_ping(const char* args) {
         terminal_writestring(buf);
         terminal_writestring("\n");
     }
-    
-    // Check if we have MAC in ARP cache
     uint8_t* mac = arp_lookup(arp_target_ip);
     if (!mac) {
         terminal_writestring("Sending ARP request for ");
@@ -270,8 +213,6 @@ void cmd_ping(const char* args) {
         terminal_writestring(buf);
         terminal_writestring("...\n");
         send_arp_request(arp_target_ip);
-        
-        // Wait for ARP response
         terminal_writestring("[PING] Polling for ARP response...\n");
         int poll_count = 0;
         for (int i = 0; i < 500000; i++) {
@@ -302,27 +243,19 @@ void cmd_ping(const char* args) {
         num[5] = '\0';
         terminal_writestring(num);
         terminal_writestring("\n");
-        
         if (!mac) {
             terminal_writestring("No ARP response received\n");
             terminal_writestring("Check if target is reachable\n");
             return;
         }
-        
         terminal_writestring("ARP resolved\n");
     }
-    
-    // Send ping
     int result = net_ping(dest_ip);
-    
     if (result) {
         terminal_writestring("Ping sent, waiting for reply...\n");
-        
-        // Wait for ICMP reply with more polling
         int got_reply = 0;
         for (int i = 0; i < 2000000; i++) {
             net_poll();
-            // TODO: Check for ICMP reply
         }
         terminal_writestring("Done\n");
         terminal_writestring("Note: QEMU user-mode networking has limited ICMP support.\n");
@@ -331,15 +264,12 @@ void cmd_ping(const char* args) {
         terminal_writestring("Failed to send ping\n");
     }
 }
-
-// wget command - simple HTTP download (basic implementation)
 void cmd_wget(const char* args) {
     if (!args || !*args) {
         terminal_writestring("Usage: wget <url>\n");
-        terminal_writestring("Example: wget http://192.168.1.1/file.txt\n");
+        terminal_writestring("Example: wget http:
         return;
     }
-    
     if (!net_is_available()) {
         terminal_writestring("Initializing network...\n");
         if (!init_network()) {
@@ -347,17 +277,10 @@ void cmd_wget(const char* args) {
             return;
         }
     }
-    
-    // Parse URL (very basic - just extract IP and path)
-    // Expected format: http://IP/path
     const char* url = args;
-    
-    // Skip http://
-    if (strncmp(url, "http://", 7) == 0) {
+    if (strncmp(url, "http:
         url += 7;
     }
-    
-    // Extract IP
     char ip_str[16];
     int i = 0;
     while (url[i] && url[i] != '/' && i < 15) {
@@ -365,12 +288,9 @@ void cmd_wget(const char* args) {
         i++;
     }
     ip_str[i] = '\0';
-    
-    // Skip /
     const char* path = url + i;
     if (*path == '/') path++;
     if (!*path) path = "/";
-    
     uint8_t dest_ip[4];
     if (!parse_ip(ip_str, dest_ip)) {
         terminal_writestring("Invalid IP address: ");
@@ -378,36 +298,28 @@ void cmd_wget(const char* args) {
         terminal_writestring("\n");
         return;
     }
-    
     terminal_writestring("Connecting to ");
     terminal_writestring(ip_str);
     terminal_writestring("...\n");
-    
     terminal_writestring("HTTP client not fully implemented yet.\n");
     terminal_writestring("For now, use: ping ");
     terminal_writestring(ip_str);
     terminal_writestring("\n");
 }
-
-// netstat command - show network statistics
 void cmd_netstat(const char* args) {
     (void)args;
-    
     if (!net_is_available()) {
         terminal_writestring("Network not initialized\n");
         terminal_writestring("Use 'ifconfig' to initialize\n");
         return;
     }
-    
     terminal_writestring("Network Statistics:\n");
     terminal_writestring("-------------------\n");
-    
     net_interface_t* iface = net_get_interface();
     if (iface) {
         terminal_writestring("Interface: ");
         terminal_writestring(iface->name);
         terminal_writestring("\n");
-        
         terminal_writestring("Status: ");
         if (iface->enabled) {
             terminal_writestring("UP\n");
@@ -415,26 +327,19 @@ void cmd_netstat(const char* args) {
             terminal_writestring("DOWN\n");
         }
     }
-    
     terminal_writestring("\nNote: Full statistics not yet implemented\n");
 }
-
-// arp command - show ARP cache
 void cmd_arp(const char* args) {
     (void)args;
-    
     if (!net_is_available()) {
         terminal_writestring("Network not initialized\n");
         return;
     }
-    
     terminal_writestring("ARP Cache:\n");
     terminal_writestring("IP Address      MAC Address\n");
     terminal_writestring("------------------------------\n");
-    
     arp_entry_t entries[16];
     int count = arp_get_cache(entries, 16);
-    
     if (count == 0) {
         terminal_writestring("(No ARP entries cached)\n");
     } else {
@@ -449,8 +354,6 @@ void cmd_arp(const char* args) {
         }
     }
 }
-
-// Help for network commands
 void cmd_nethelp(const char* args) {
     (void)args;
     terminal_writestring("Network Commands:\n");

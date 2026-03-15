@@ -3,7 +3,6 @@ static void cmd_login(const char* args) {
         terminal_writestring("Usage: login <username> <password>\n");
         return;
     }
-
     char username[32], password[32];
     char* space = strstr(args, " ");
     if (space) {
@@ -16,8 +15,6 @@ static void cmd_login(const char* args) {
         if (passlen >= 32) passlen = 31;
         for (int i = 0; i < passlen; i++) password[i] = pass[i];
         password[passlen] = '\0';
-
-        // Trim whitespace from username before authentication
         char trimmed_username[32];
         int src = 0, dst = 0;
         while (username[src] == ' ' || username[src] == '\t') src++;
@@ -28,7 +25,6 @@ static void cmd_login(const char* args) {
             src++;
         }
         trimmed_username[dst] = '\0';
-
         if (authenticate_user(trimmed_username, password)) {
             terminal_writestring("Logged in as ");
             terminal_writestring(current_user);

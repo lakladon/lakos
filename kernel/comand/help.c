@@ -5,16 +5,13 @@ static void cmd_help(const char* args) {
         terminal_writestring("\n");
         return;
     }
-
     terminal_writestring("Lakos OS Commands: help, man, cls, ver, pwd, ls, cd, echo, uname, date, cat, mkdir, disks, read_sector, write_sector, mount, useradd, passwd, login, userdel, crypt, whoami, touch, rm, cp, shutdown, reboot, gui, colorb\nAvailable programs: hello, test, editor, calc\nTip: <command> --help or man <command>\n");
 }
-
 static void cmd_man(const char* args) {
     if (!args || strlen(args) == 0) {
         terminal_writestring("usage: man <command>\n");
         return;
     }
-
     if (strcmp(args, "help") == 0) {
         terminal_writestring("help - show command list\nusage: help\n");
     } else if (strcmp(args, "man") == 0) {

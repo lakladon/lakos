@@ -3,12 +3,10 @@ static void cmd_ls(const char* args) {
     if (strlen(target_dir) == 0) {
         target_dir = current_dir;
     }
-
     if (tar_archive) {
         tar_list_directory(tar_archive, target_dir);
         return;
     }
-
     int printed = 0;
     #define LS_PRINT(s) do { \
         terminal_writestring(s); \
@@ -19,7 +17,6 @@ static void cmd_ls(const char* args) {
             printed = 0; \
         } \
     } while (0)
-
     if (strcmp(target_dir, "/") == 0) {
         for (int i = 0; i < dir_count; i++) {
             LS_PRINT(dirs[i]); LS_PRINT("/ ");
@@ -53,6 +50,5 @@ static void cmd_ls(const char* args) {
     } else {
         LS_PRINT(".\n");
     }
-
     #undef LS_PRINT
 }

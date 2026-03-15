@@ -1,17 +1,9 @@
-
-/*
- * Lakos OS
- * Copyright (c) 2026 lakladon
- * Created: February 1, 2026
- */
-
 #include "include/lib.h"
 #include "include/users.h"
 #include "include/crypt.h"
 #include "include/version.h"
 #include "include/commands.h"
 #include "drivers/io.h"
-
 extern void terminal_writestring(const char* s);
 extern void terminal_putchar(char c);
 extern void terminal_initialize();
@@ -29,16 +21,12 @@ extern void save_users();
 extern int ata_detect_disks();
 extern void ata_read_sector(uint8_t drive, uint32_t lba, uint16_t* buffer);
 extern void ata_write_sector(uint8_t drive, uint32_t lba, uint16_t* buffer);
-
-// ELF definitions for basic loading
 #define EI_NIDENT 16
 #define PT_LOAD 1
-
 typedef uint32_t Elf32_Addr;
 typedef uint16_t Elf32_Half;
 typedef uint32_t Elf32_Off;
 typedef uint32_t Elf32_Word;
-
 typedef struct {
     unsigned char e_ident[EI_NIDENT];
     Elf32_Half e_type;
@@ -55,7 +43,6 @@ typedef struct {
     Elf32_Half e_shnum;
     Elf32_Half e_shstrndx;
 } Elf32_Ehdr;
-
 typedef struct {
     Elf32_Word p_type;
     Elf32_Off p_offset;
@@ -66,29 +53,21 @@ typedef struct {
     Elf32_Word p_flags;
     Elf32_Word p_align;
 } Elf32_Phdr;
-
-// Simple file system simulation
 typedef struct {
     char name[32];
     char content[256];
     int size;
 } file_t;
-
 static file_t files[10];
 static int file_count = 0;
-
 static char dirs[10][32];
 static int dir_count = 0;
-
 static char home_dirs[10][32];
 static int home_dir_count = 0;
 static char home_subdirs[10][10][32];
 static int home_sub_count[10] = {0};
-
 char current_dir[256] = "/";
 static char* pathbin = "/bin";
-
-// Forward declarations for helpers used by command files.
 char get_char();
 void grep(const char* args);
 void execute_command_with_output(const char* command, char* output, int output_size);
@@ -96,7 +75,6 @@ void execute_command_with_input(const char* command, const char* input);
 void grep_with_output(const char* pattern, const char* filename, char* output, int output_size);
 void grep_with_input(const char* pattern, const char* input);
 static file_t* find_file(const char* name);
-
 static void append_capture(char* output, int output_size, const char* text) {
     if (!output || output_size <= 0 || !text) return;
     int len = strlen(output);
@@ -109,14 +87,12 @@ static void append_capture(char* output, int output_size, const char* text) {
         strncat(output, text, add);
     }
 }
-
 static void terminal_write_n(const char* s, int n) {
     if (!s || n <= 0) return;
     for (int i = 0; i < n; i++) {
         terminal_putchar(s[i]);
     }
 }
-
 static void append_capture_n(char* output, int output_size, const char* text, int n) {
     if (!output || output_size <= 0 || !text || n <= 0) return;
     for (int i = 0; i < n; i++) {
@@ -126,7 +102,6 @@ static void append_capture_n(char* output, int output_size, const char* text, in
         output[len + 1] = '\0';
     }
 }
-
 static void print_highlighted_line(const char* line, const char* pattern) {
     if (!line) return;
     if (!pattern || pattern[0] == '\0') {
@@ -134,27 +109,22 @@ static void print_highlighted_line(const char* line, const char* pattern) {
         terminal_putchar('\n');
         return;
     }
-
     int pat_len = strlen(pattern);
     const char* p = line;
-
     while (1) {
         const char* match = strstr(p, pattern);
         if (!match) {
             terminal_writestring(p);
             break;
         }
-
         terminal_write_n(p, (int)(match - p));
         terminal_writestring("\033[31m");
         terminal_write_n(match, pat_len);
         terminal_writestring("\033[0m");
         p = match + pat_len;
     }
-
     terminal_putchar('\n');
 }
-
 static void append_highlighted_line(char* output, int output_size, const char* line, const char* pattern) {
     if (!output || output_size <= 0 || !line) return;
     if (!pattern || pattern[0] == '\0') {
@@ -162,38 +132,26 @@ static void append_highlighted_line(char* output, int output_size, const char* l
         append_capture(output, output_size, "\n");
         return;
     }
-
     int pat_len = strlen(pattern);
     const char* p = line;
-
     while (1) {
         const char* match = strstr(p, pattern);
         if (!match) {
             append_capture(output, output_size, p);
             break;
         }
-
         append_capture_n(output, output_size, p, (int)(match - p));
         append_capture(output, output_size, "\033[31m");
         append_capture_n(output, output_size, match, pat_len);
         append_capture(output, output_size, "\033[0m");
         p = match + pat_len;
     }
-
     append_capture(output, output_size, "\n");
 }
-
-
-
-
-
-// Forward declarations for internal helpers used by command files.
 static file_t* find_file(const char* name);
 static file_t* create_file(const char* name);
 static void shutdown();
 static void reboot();
-
-// Command handlers split into separate files.
 #include "comand/help.c"
 #include "comand/cls.c"
 #include "comand/ver.c"
@@ -227,19 +185,15 @@ static void reboot();
 #include "comand/net.c"
 #include "comand/colorb.c"
 #include "comand/lsh.c"
-
 void init_kernel_commands() {
-    // If tar archive is available, get directories from it
     if (tar_archive) {
         char tar_dirs[100][256];
         int tar_count = 0;
         tar_get_directories(tar_archive, tar_dirs, &tar_count);
-
         for (int i = 0; i < tar_count && dir_count < 10; i++) {
             if (tar_dirs[i][0] == '\0') {
                 continue;
             }
-
             char* slash = strchr(tar_dirs[i], '/');
             int name_len = 0;
             if (slash) {
@@ -247,15 +201,12 @@ void init_kernel_commands() {
             } else {
                 name_len = strlen(tar_dirs[i]);
             }
-
             if (name_len <= 0 || name_len >= (int)sizeof(dirs[0])) {
                 continue;
             }
-
             char top_name[32];
             strncpy(top_name, tar_dirs[i], name_len);
             top_name[name_len] = '\0';
-
             int exists = 0;
             for (int d = 0; d < dir_count; d++) {
                 if (strcmp(dirs[d], top_name) == 0) {
@@ -263,26 +214,22 @@ void init_kernel_commands() {
                     break;
                 }
             }
-
             if (!exists) {
                 strcpy(dirs[dir_count++], top_name);
             }
         }
     } else {
-        // Fallback to basic directories when no tar archive present
         strcpy(dirs[dir_count++], "bin");
         strcpy(dirs[dir_count++], "dev");
         strcpy(dirs[dir_count++], "home");
     }
 }
-
 static file_t* find_file(const char* name) {
     for (int i = 0; i < file_count; i++) {
         if (strcmp(files[i].name, name) == 0) return &files[i];
     }
     return 0;
 }
-
 static file_t* create_file(const char* name) {
     if (file_count >= 10) return 0;
     int len = strlen(name);
@@ -292,63 +239,46 @@ static file_t* create_file(const char* name) {
     files[file_count].size = 0;
     return &files[file_count++];
 }
-
 static int is_file_in_path(const char* name, const char* path) {
-    // Dynamic check: verify that the file exists in the given path within the tar archive
     if (!tar_archive) {
         return 0;
     }
-    // Remove leading '/' from path if present
     const char* clean_path = path;
     if (clean_path[0] == '/' && clean_path[1] != '\0') {
         clean_path++;
     }
     char tar_path[256];
-    // Construct tar lookup path: "<clean_path>/<name>"
-    // Ensure no double slashes
     if (clean_path[0] == '\0') {
-        // Empty path, just use name
         snprintf(tar_path, sizeof(tar_path), "%s", name);
     } else {
         snprintf(tar_path, sizeof(tar_path), "%s/%s", clean_path, name);
     }
-    // Attempt to locate the file in the tar archive
     void* data = tar_lookup(tar_archive, tar_path);
     return data != 0;
 }
-
 static void shutdown() {
     terminal_writestring("Shutting down...\n");
-    // For QEMU shutdown
     __asm__ volatile("outw %0, %1" : : "a"((uint16_t)0x2000), "Nd"((uint16_t)0xB004));
-    // Fallback
     while (1) {
         __asm__ volatile("hlt");
     }
 }
-
 static void reboot() {
     terminal_writestring("Rebooting...\n");
     outb(0x64, 0xFE);
 }
-
-// Global variables for user program runtime
 static char user_input_buffer[256];
 static int user_input_pos = 0;
-
-// Function to get a character from keyboard (for user programs)
 char get_char() {
     while (1) {
         if (inb(0x64) & 0x1) {
             uint8_t scancode = inb(0x60);
-            if (!(scancode & 0x80)) { // Key press (not release)
+            if (!(scancode & 0x80)) { 
                 char c = 0;
-                
-                // Map scancodes to ASCII characters
                 switch (scancode) {
-                    case 28: // Enter
+                    case 28: 
                         return '\n';
-                    case 14: // Backspace
+                    case 14: 
                         if (user_input_pos > 0) {
                             user_input_pos--;
                             terminal_putchar('\b');
@@ -356,27 +286,25 @@ char get_char() {
                             terminal_putchar('\b');
                         }
                         break;
-                    case 57: // Space
+                    case 57: 
                         c = ' ';
                         break;
                     default:
-                        // Map alphanumeric keys (simplified mapping)
-                        if (scancode >= 2 && scancode <= 11) { // 1-0
+                        if (scancode >= 2 && scancode <= 11) { 
                             c = '1' + (scancode - 2);
-                        } else if (scancode == 12) { // -
+                        } else if (scancode == 12) { 
                             c = '-';
-                        } else if (scancode == 13) { // =
+                        } else if (scancode == 13) { 
                             c = '=';
-                        } else if (scancode >= 16 && scancode <= 25) { // q-p
+                        } else if (scancode >= 16 && scancode <= 25) { 
                             c = 'q' + (scancode - 16);
-                        } else if (scancode >= 30 && scancode <= 38) { // a-l
+                        } else if (scancode >= 30 && scancode <= 38) { 
                             c = 'a' + (scancode - 30);
-                        } else if (scancode >= 44 && scancode <= 50) { // z-m
+                        } else if (scancode >= 44 && scancode <= 50) { 
                             c = 'z' + (scancode - 44);
                         }
                         break;
                 }
-                
                 if (c >= 32 && c < 127 && user_input_pos < 255) {
                     user_input_buffer[user_input_pos++] = c;
                     terminal_putchar(c);
@@ -385,7 +313,6 @@ char get_char() {
         }
     }
 }
-
 static void execute_binary(const char* name) {
     if (!tar_archive) {
         terminal_writestring("No tar archive loaded.\n");
@@ -398,19 +325,17 @@ static void execute_binary(const char* name) {
     char path[256];
     strcpy(path, "bin/");
     strcpy(path + 4, name);
-
     void* data = tar_lookup(tar_archive, path);
     if (!data) {
         terminal_writestring("Binary not found in tar.\n");
         return;
     }
-
     Elf32_Ehdr* ehdr = (Elf32_Ehdr*)data;
     if (ehdr->e_ident[0] != 0x7F || ehdr->e_ident[1] != 'E' || ehdr->e_ident[2] != 'L' || ehdr->e_ident[3] != 'F') {
         terminal_writestring("Not a valid ELF file.\n");
         return;
     }
-    if (ehdr->e_machine != 3) { // i386
+    if (ehdr->e_machine != 3) { 
         terminal_writestring("Unsupported ELF architecture.\n");
         return;
     }
@@ -418,8 +343,6 @@ static void execute_binary(const char* name) {
         terminal_writestring("Invalid entry point address.\n");
         return;
     }
-
-    // Load program headers
     Elf32_Phdr* phdr = (Elf32_Phdr*)((uint8_t*)data + ehdr->e_phoff);
     for (int i = 0; i < ehdr->e_phnum; i++) {
         if (phdr[i].p_type == PT_LOAD) {
@@ -427,75 +350,51 @@ static void execute_binary(const char* name) {
                 terminal_writestring("Invalid load address.\n");
                 return;
             }
-            if (phdr[i].p_memsz > 0x100000) { // arbitrary limit
+            if (phdr[i].p_memsz > 0x100000) { 
                 terminal_writestring("Program too large.\n");
                 return;
             }
             memcpy((void*)phdr[i].p_vaddr, (uint8_t*)data + phdr[i].p_offset, phdr[i].p_filesz);
-            // Zero bss
             memset((void*)(phdr[i].p_vaddr + phdr[i].p_filesz), 0, phdr[i].p_memsz - phdr[i].p_filesz);
         }
     }
-
-    // Set up stack (simple) - allocate in safe memory
-    uint32_t* stack = (uint32_t*)0x200000; // arbitrary safe address
+    uint32_t* stack = (uint32_t*)0x200000; 
     uint32_t* sp = &stack[255];
-    *(--sp) = 0; // argv[1] = NULL
-    *(--sp) = (uint32_t)name; // argv[0]
-    *(--sp) = 1; // argc
-
-    // Call entry point
+    *(--sp) = 0; 
+    *(--sp) = (uint32_t)name; 
+    *(--sp) = 1; 
     typedef int (*entry_t)(int, char**);
     entry_t entry = (entry_t)ehdr->e_entry;
     int ret = entry(1, (char**)sp);
-
     terminal_writestring("Binary returned: ");
     terminal_putchar('0' + ret);
     terminal_writestring("\n");
 }
-
 void kernel_execute_command(const char* input) {
-    // Check for pipe operator
     const char* pipe_pos = strchr(input, '|');
     if (pipe_pos) {
-        // Handle pipe
         char left_cmd[256];
         char right_cmd[256];
-        
-        // Extract left command (everything before the pipe)
         int left_len = pipe_pos - input;
         strncpy(left_cmd, input, left_len);
         left_cmd[left_len] = '\0';
-        
-        // Remove trailing spaces from left command
         while (left_len > 0 && left_cmd[left_len - 1] == ' ') {
             left_cmd[--left_len] = '\0';
         }
-        
-        // Extract right command (everything after the pipe)
         const char* right_start = pipe_pos + 1;
         while (*right_start == ' ') right_start++;
         strcpy(right_cmd, right_start);
-        
-        // Remove trailing spaces from right command
         int right_len = strlen(right_cmd);
         while (right_len > 0 && right_cmd[right_len - 1] == ' ') {
             right_cmd[--right_len] = '\0';
         }
-        
-        // Execute left command and capture output
         char buffer[1024];
         execute_command_with_output(left_cmd, buffer, sizeof(buffer));
-        
-        // Execute right command with piped input
         execute_command_with_input(right_cmd, buffer);
         return;
     }
-
-    // Skip leading spaces
     while (*input == ' ') input++;
     if (*input == '\0') return;
-
     char cmd[64];
     int i = 0;
     while (input[i] && input[i] != ' ' && i < 63) {
@@ -503,20 +402,16 @@ void kernel_execute_command(const char* input) {
         i++;
     }
     cmd[i] = '\0';
-    
     const char* args = input + i;
     while (*args == ' ') args++;
-
     if (strcmp(cmd, "--help") == 0 || strcmp(cmd, "-h") == 0) {
         cmd_help("");
         return;
     }
-
     if (strcmp(args, "--help") == 0 || strcmp(args, "-h") == 0) {
         cmd_man(cmd);
         return;
     }
-
     if (strcmp(cmd, "help") == 0) {
         cmd_help(args);
     }
@@ -553,7 +448,6 @@ void kernel_execute_command(const char* input) {
     else if (strcmp(cmd, "whoami") == 0) {
         cmd_whoami(args);
     }
-    // duplicate cat implementation removed
     else if (strcmp(cmd, "mkdir") == 0) {
         cmd_mkdir(args);
     }
@@ -642,34 +536,25 @@ void kernel_execute_command(const char* input) {
         }
     }
 }
-
-// Simple grep implementation
 void grep(const char* args) {
     if (strlen(args) == 0) {
         terminal_writestring("grep: missing pattern\n");
         return;
     }
-    
-    // Extract pattern and filename
     char pattern[256];
     char filename[256];
-    
     const char* p = args;
     int j = 0;
     while (*p && *p != ' ' && j < 255) {
         pattern[j++] = *p++;
     }
     pattern[j] = '\0';
-    
     while (*p == ' ') p++;
     strcpy(filename, p);
-    
     if (strlen(pattern) == 0 || strlen(filename) == 0) {
         terminal_writestring("grep: usage: grep <pattern> <filename>\n");
         return;
     }
-    
-    // Search in tar archive if available
     if (tar_archive) {
         char tar_path[256];
         if (filename[0] == '/') {
@@ -683,24 +568,20 @@ void grep(const char* args) {
             }
             strcat(tar_path, filename);
         }
-
         void* data = tar_lookup(tar_archive, tar_path);
         int size = tar_get_file_size(tar_archive, tar_path);
         if (data && size >= 0) {
             char* bytes = (char*)data;
             int line_start = 0;
             int found = 0;
-            
             for (int i = 0; i <= size; i++) {
                 if (bytes[i] == '\n' || i == size) {
-                    // Check current line for pattern
                     int line_len = i - line_start;
                     if (line_len > 0) {
                         char line[256];
                         if (line_len >= 256) line_len = 255;
                         strncpy(line, bytes + line_start, line_len);
                         line[line_len] = '\0';
-                        
                         if (strstr(line, pattern)) {
                             print_highlighted_line(line, pattern);
                             found = 1;
@@ -709,30 +590,24 @@ void grep(const char* args) {
                     line_start = i + 1;
                 }
             }
-            
             if (!found) {
                 terminal_writestring("No matches found\n");
             }
             return;
         }
     }
-    
-    // Fall back to in-memory file system
     file_t* f = find_file(filename);
     if (f) {
         int line_start = 0;
         int found = 0;
-        
         for (int i = 0; i <= f->size; i++) {
             if (f->content[i] == '\n' || i == f->size) {
-                // Check current line for pattern
                 int line_len = i - line_start;
                 if (line_len > 0) {
                     char line[256];
                     if (line_len >= 256) line_len = 255;
                     strncpy(line, f->content + line_start, line_len);
                     line[line_len] = '\0';
-                    
                     if (strstr(line, pattern)) {
                         print_highlighted_line(line, pattern);
                         found = 1;
@@ -741,7 +616,6 @@ void grep(const char* args) {
                 line_start = i + 1;
             }
         }
-        
         if (!found) {
             terminal_writestring("No matches found\n");
         }
@@ -751,22 +625,16 @@ void grep(const char* args) {
         terminal_writestring(": No such file\n");
     }
 }
-
-// Function to execute a command and capture its output
 void execute_command_with_output(const char* command, char* output, int output_size) {
     if (!output || output_size <= 0) {
         return;
     }
-
     output[0] = '\0';
     terminal_capture_begin(output, output_size);
     kernel_execute_command(command);
     terminal_capture_end();
 }
-
-// Function to execute a command with input from a buffer
 void execute_command_with_input(const char* command, const char* input) {
-    // Parse the command
     char cmd[64];
     int i = 0;
     while (command[i] && command[i] != ' ' && i < 63) {
@@ -774,34 +642,22 @@ void execute_command_with_input(const char* command, const char* input) {
         i++;
     }
     cmd[i] = '\0';
-    
     const char* args = command + i;
     while (*args == ' ') args++;
-    
-    // For grep, we'll implement input processing
     if (strcmp(cmd, "grep") == 0) {
-        // Simple grep implementation that processes input from buffer
         char pattern[256];
-        
-        // Extract pattern
         const char* p = args;
         int j = 0;
         while (*p && *p != ' ' && j < 255) {
             pattern[j++] = *p++;
         }
         pattern[j] = '\0';
-        
-        // Process input buffer line by line
         grep_with_input(pattern, input);
     } else {
-        // For other commands, just execute them normally
         kernel_execute_command(command);
     }
 }
-
-// Helper function for grep with output capture
 void grep_with_output(const char* pattern, const char* filename, char* output, int output_size) {
-    // Search in tar archive if available
     if (tar_archive) {
         char tar_path[256];
         if (filename[0] == '/') {
@@ -815,7 +671,6 @@ void grep_with_output(const char* pattern, const char* filename, char* output, i
             }
             strcat(tar_path, filename);
         }
-
         void* data = tar_lookup(tar_archive, tar_path);
         int size = tar_get_file_size(tar_archive, tar_path);
         if (data && size >= 0) {
@@ -823,19 +678,15 @@ void grep_with_output(const char* pattern, const char* filename, char* output, i
             int line_start = 0;
             int output_pos = 0;
             int found = 0;
-            
             for (int i = 0; i <= size; i++) {
                 if (bytes[i] == '\n' || i == size) {
-                    // Check current line for pattern
                     int line_len = i - line_start;
                     if (line_len > 0) {
                         char line[256];
                         if (line_len >= 256) line_len = 255;
                         strncpy(line, bytes + line_start, line_len);
                         line[line_len] = '\0';
-                        
                         if (strstr(line, pattern)) {
-                            // Add highlighted line to output buffer
                             append_highlighted_line(output, output_size, line, pattern);
                             output_pos = strlen(output);
                             found = 1;
@@ -844,7 +695,6 @@ void grep_with_output(const char* pattern, const char* filename, char* output, i
                     line_start = i + 1;
                 }
             }
-            
             if (!found) {
                 strcpy(output, "No matches found\n");
             } else {
@@ -853,26 +703,20 @@ void grep_with_output(const char* pattern, const char* filename, char* output, i
             return;
         }
     }
-    
-    // Fall back to in-memory file system
     file_t* f = find_file(filename);
     if (f) {
         int line_start = 0;
         int output_pos = 0;
         int found = 0;
-        
         for (int i = 0; i <= f->size; i++) {
             if (f->content[i] == '\n' || i == f->size) {
-                // Check current line for pattern
                 int line_len = i - line_start;
                 if (line_len > 0) {
                     char line[256];
                     if (line_len >= 256) line_len = 255;
                     strncpy(line, f->content + line_start, line_len);
                     line[line_len] = '\0';
-                    
                     if (strstr(line, pattern)) {
-                        // Add highlighted line to output buffer
                         append_highlighted_line(output, output_size, line, pattern);
                         output_pos = strlen(output);
                         found = 1;
@@ -881,7 +725,6 @@ void grep_with_output(const char* pattern, const char* filename, char* output, i
                 line_start = i + 1;
             }
         }
-        
         if (!found) {
             strcpy(output, "No matches found\n");
         } else {
@@ -891,28 +734,21 @@ void grep_with_output(const char* pattern, const char* filename, char* output, i
         strcpy(output, "grep: file not found\n");
     }
 }
-
-// Helper function for grep with input processing
 void grep_with_input(const char* pattern, const char* input) {
-    // Process input buffer line by line
     if (!input || !pattern) {
         terminal_writestring("grep: invalid input\n");
         return;
     }
-    
     int line_start = 0;
     int found = 0;
-    
     for (int i = 0; input[i] != '\0'; i++) {
         if (input[i] == '\n') {
-            // Check current line for pattern
             int line_len = i - line_start;
             if (line_len > 0) {
                 char line[256];
                 if (line_len >= 256) line_len = 255;
                 strncpy(line, input + line_start, line_len);
                 line[line_len] = '\0';
-                
                 if (strstr(line, pattern)) {
                     print_highlighted_line(line, pattern);
                     found = 1;
@@ -921,21 +757,17 @@ void grep_with_input(const char* pattern, const char* input) {
             line_start = i + 1;
         }
     }
-    
-    // Check last line if it doesn't end with newline
     int last_line_len = strlen(input) - line_start;
     if (last_line_len > 0) {
         char line[256];
         if (last_line_len >= 256) last_line_len = 255;
         strncpy(line, input + line_start, last_line_len);
         line[last_line_len] = '\0';
-        
         if (strstr(line, pattern)) {
             print_highlighted_line(line, pattern);
             found = 1;
         }
     }
-    
     if (!found) {
         terminal_writestring("No matches found\n");
     }

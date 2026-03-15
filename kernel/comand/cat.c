@@ -17,7 +17,6 @@ static void cmd_cat(const char* args) {
                 }
                 strcat(tar_path, filename);
             }
-
             void* data = tar_lookup(tar_archive, tar_path);
             int size = tar_get_file_size(tar_archive, tar_path);
             if (data && size >= 0) {
@@ -38,7 +37,6 @@ static void cmd_cat(const char* args) {
                 handled = 1;
             }
         }
-
         if (!handled) {
             file_t* f = find_file(filename);
             if (f) {

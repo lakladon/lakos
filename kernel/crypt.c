@@ -1,11 +1,4 @@
-/*
- * Lakos OS
- * Copyright (c) 2026 lakladon
- * Created: January 11, 2026
- */
-
 #include "include/crypt.h"
-
 void encrypt_password(const char* pass, const char* key, char* output) {
     int pass_len = 0;
     while (pass[pass_len] && pass_len < MAX_PASS_LEN - 1) pass_len++;
@@ -16,7 +9,6 @@ void encrypt_password(const char* pass, const char* key, char* output) {
     }
     output[pass_len] = '\0';
 }
-
 void decrypt_password(const char* enc, const char* key, char* output) {
-    encrypt_password(enc, key, output); // XOR is symmetric
+    encrypt_password(enc, key, output); 
 }

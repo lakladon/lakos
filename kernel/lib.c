@@ -1,21 +1,12 @@
-/*
- * Lakos OS
- * Copyright (c) 2026 lakladon
- * Created: February 1, 2026
- */
-
 #include "include/lib.h"
-
 void strcpy(char* dest, const char* src) {
     while (*src) *dest++ = *src++;
     *dest = '\0';
 }
-
 int strcmp(const char* s1, const char* s2) {
     while (*s1 && (*s1 == *s2)) { s1++; s2++; }
     return *(const unsigned char*)s1 - *(const unsigned char*)s2;
 }
-
 int strncmp(const char* s1, const char* s2, unsigned int n) {
     while (n && *s1 && (*s1 == *s2)) {
         s1++; s2++; n--;
@@ -23,13 +14,11 @@ int strncmp(const char* s1, const char* s2, unsigned int n) {
     if (n == 0) return 0;
     return *(const unsigned char*)s1 - *(const unsigned char*)s2;
 }
-
 int strlen(const char* s) {
     int len = 0;
     while (*s++) len++;
     return len;
 }
-
 int atoi(const char* s) {
     int n = 0;
     while (*s >= '0' && *s <= '9') {
@@ -38,20 +27,17 @@ int atoi(const char* s) {
     }
     return n;
 }
-
 void* memcpy(void* dest, const void* src, unsigned int n) {
     char* d = (char*)dest;
     const char* s = (const char*)src;
     while (n--) *d++ = *s++;
     return dest;
 }
-
 void* memset(void* s, int c, unsigned int n) {
     unsigned char* p = (unsigned char*)s;
     while (n--) *p++ = (unsigned char)c;
     return s;
 }
-
 char* strstr(const char* haystack, const char* needle) {
     if (!*needle) return (char*)haystack;
     for (; *haystack; haystack++) {
@@ -62,7 +48,6 @@ char* strstr(const char* haystack, const char* needle) {
     }
     return 0;
 }
-
 char* strncat(char* dest, const char* src, int n) {
     char* d = dest;
     while (*d) d++;
@@ -70,7 +55,6 @@ char* strncat(char* dest, const char* src, int n) {
     *d = '\0';
     return dest;
 }
-
 char* strchr(const char* s, int c) {
     while (*s) {
         if (*s == c) return (char*)s;
@@ -78,7 +62,6 @@ char* strchr(const char* s, int c) {
     }
     return 0;
 }
-
 char* strcat(char* dest, const char* src) {
     char* d = dest;
     while (*d) d++;
@@ -86,7 +69,6 @@ char* strcat(char* dest, const char* src) {
     *d = '\0';
     return dest;
 }
-
 char* strrchr(const char* s, int c) {
     const char* last = 0;
     while (*s) {
@@ -95,7 +77,6 @@ char* strrchr(const char* s, int c) {
     }
     return (char*)last;
 }
-
 char* strncpy(char* dest, const char* src, unsigned int n) {
     char* d = dest;
     unsigned int i = 0;
@@ -109,7 +90,6 @@ char* strncpy(char* dest, const char* src, unsigned int n) {
     }
     return dest;
 }
-
 void itoa(int n, char* buf) {
     if (n == 0) {
         buf[0] = '0';
@@ -125,17 +105,13 @@ void itoa(int n, char* buf) {
     }
     if (sign < 0) buf[i++] = '-';
     buf[i] = '\0';
-    // reverse
     for (int j = 0; j < i/2; j++) {
         char t = buf[j];
         buf[j] = buf[i-1-j];
         buf[i-1-j] = t;
     }
 }
-
 int snprintf(char* str, unsigned int size, const char* format, ...) {
-    // Simple implementation that just copies the format string
-    // This is a minimal implementation for our kernel
     unsigned int i = 0;
     while (format[i] != '\0' && i < size - 1) {
         str[i] = format[i];

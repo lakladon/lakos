@@ -10,7 +10,6 @@ static void cmd_cd(const char* args) {
         strcpy(current_dir, "/home");
     } else if (strcmp(dir, "..") == 0) {
         if (strcmp(current_dir, "/") == 0) {
-            // stay
         } else if (strcmp(current_dir, "/home") == 0 || strcmp(current_dir, "/bin") == 0) {
             strcpy(current_dir, "/");
         } else if (strncmp(current_dir, "/home/", 6) == 0) {
@@ -25,9 +24,7 @@ static void cmd_cd(const char* args) {
             strcpy(current_dir, "/");
         }
     } else {
-        // handle subdirectory navigation within /home
         if (strncmp(current_dir, "/home/", 6) == 0) {
-            // find parent directory name
             const char* cur = current_dir + 6;
             int len = 0;
             while (cur[len] && cur[len] != '/') len++;
@@ -46,7 +43,6 @@ static void cmd_cd(const char* args) {
                 int found = 0;
                 for (int j = 0; j < home_sub_count[parent_index]; j++) {
                     if (strcmp(home_subdirs[parent_index][j], dir) == 0) {
-                        // build new path
                         char new_path[256];
                         strcpy(new_path, current_dir);
                         if (new_path[strlen(new_path)-1] != '/') {
@@ -67,7 +63,6 @@ static void cmd_cd(const char* args) {
                 terminal_writestring("cd: parent directory not found\n");
             }
         } else {
-            // simple handling for other directories
             if (dir[0] == '/') {
                 strcpy(current_dir, dir);
             } else {

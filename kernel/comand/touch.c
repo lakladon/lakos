@@ -38,7 +38,6 @@ static void cmd_touch(const char* args) {
             if (parent_len >= 32) parent_len = 31;
             for (int k = 0; k < parent_len; k++) parent_name[k] = parent[k];
             parent_name[parent_len] = '\0';
-
             int parent_index = -1;
             for (int i = 0; i < home_dir_count; i++) {
                 if (strcmp(home_dirs[i], parent_name) == 0) {
@@ -46,7 +45,6 @@ static void cmd_touch(const char* args) {
                     break;
                 }
             }
-
             if (parent_index >= 0) {
                 int exists = 0;
                 for (int j = 0; j < home_sub_count[parent_index]; j++) {
@@ -55,7 +53,6 @@ static void cmd_touch(const char* args) {
                         break;
                     }
                 }
-
                 if (!exists) {
                     if (home_sub_count[parent_index] >= 10) {
                         terminal_writestring("touch: too many subdirectories\n");

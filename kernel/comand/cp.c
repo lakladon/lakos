@@ -7,10 +7,8 @@ static void cmd_cp(const char* args) {
         j++;
     }
     src_name[j] = '\0';
-
     const char* dest = p + j;
     while (*dest == ' ') dest++;
-
     if (strlen(src_name) > 0 && strlen(dest) > 0) {
         file_t* s = find_file(src_name);
         if (s) {
