@@ -1,41 +1,27 @@
-; Lakos OS
-; Copyright (c) 2026 lakladon
-; Created: January 8, 2026
-
-; Константы Multiboot
-MODULEALIGN equ  1<<0                   ; выравнивать модули по страницам
-MEMINFO     equ  1<<1                   ; предоставлять карту памяти
-FLAGS       equ  MODULEALIGN | MEMINFO  ; флаги multiboot
-MAGIC       equ  0x1BADB002             ; магическое число
-CHECKSUM    equ -(MAGIC + FLAGS)        ; контрольная сумма
-
+MODULEALIGN equ  1<<0                   
+MEMINFO     equ  1<<1                   
+FLAGS       equ  MODULEALIGN | MEMINFO  
+MAGIC       equ  0x1BADB002             
+CHECKSUM    equ -(MAGIC + FLAGS)        
 section .multiboot
 align 4
     dd MAGIC
     dd FLAGS
     dd CHECKSUM
-
 section .text
 global _start
 extern kmain
-
 _start:
-    ; Установка стека (стек растет вниз)
     mov esp, stack_top
-    
-    ; Передача управления в Си
-    push eax            ; заголовок multiboot magic
-    push ebx            ; адрес структуры multiboot info
+    push eax           
+    push ebx            
     call kmain
-
-    ; Если ядро выйдет из kmain, останавливаем процессор
 .hang:
     cli
     hlt
     jmp .hang
-
 section .bss
 align 16
 stack_bottom:
-    resb 16384 ; 16 КБ для стека
+    resb 16384 
 stack_top:
