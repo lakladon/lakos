@@ -1,5 +1,5 @@
 CC = i686-elf-gcc
-# Если i686-elf-gcc нет, используем обычный gcc с флагами
+
 ifeq (, $(shell which $(CC)))
     CC = gcc
 endif
@@ -76,7 +76,6 @@ LIMINE_BOOTIA32 = $(firstword $(wildcard \
 	/usr/local/share/limine-bootloader/BOOTIA32.EFI \
 	$(PROJECT_ROOT)/tools/limine-install/share/limine/BOOTIA32.EFI))
 
-# By default build full bootable artifact set (kernel + modules + ISO)
 all: iso
 
 lakos.bin: $(OBJ)
@@ -108,7 +107,7 @@ iso: lakos.bin modules.tar
 	cp "$(LIMINE_UEFI_CD)" isodir/boot/limine/
 	cp "$(LIMINE_BIOS_SYS)" isodir/boot/limine/
 	cp "$(LIMINE_BOOTX64)" isodir/EFI/BOOT/BOOTX64.EFI
-	@if [ -f "$(LIMINE_BOOTIA32)" ]; then cp "$(LIMINE_BOOTIA32)" isodir/EFI/BOOT/BOOTIA32.EFI; fi
+	@if [ -f "$(LIMINE_BOOTIA32)" ]
 	xorriso -as mkisofs \
 		-b boot/limine/limine-bios-cd.bin \
 		-no-emul-boot \
@@ -119,19 +118,18 @@ iso: lakos.bin modules.tar
 		--efi-boot-image \
 		--protective-msdos-label \
 		isodir -o lakos.iso
-	@if command -v $(LIMINE) >/dev/null 2>&1; then \
-		$(LIMINE) bios-install lakos.iso 2>/dev/null || $(LIMINE) deploy lakos.iso; \
-	elif command -v limine-deploy >/dev/null 2>&1; then \
-		limine-deploy lakos.iso; \
+	@if command -v $(LIMINE) >/dev/null 2>&1
+		$(LIMINE) bios-install lakos.iso 2>/dev/null || $(LIMINE) deploy lakos.iso
+	elif command -v limine-deploy >/dev/null 2>&1
+		limine-deploy lakos.iso
 	else \
-		echo "Limine tool not found (expected 'limine' or 'limine-deploy')."; \
-		exit 1; \
+		echo "Limine tool not found (expected 'limine' or 'limine-deploy')."
+		exit 1
 	fi
 
 run: iso
 	qemu-system-i386 -cdrom lakos.iso -boot d -m 512M -nographic
 
-# Run with network support
 run-net: iso
 	qemu-system-i386 -cdrom lakos.iso -boot d -m 512M  \
 		-netdev user,id=net0,hostfwd=tcp::8080-:80 \

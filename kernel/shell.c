@@ -1,8 +1,4 @@
-/*
- * Lakos OS
- * Copyright (c) 2026 lakladon
- * Created: January 8, 2026
- */
+
 
 #include <stdint.h>
 #include <io.h>
@@ -46,7 +42,7 @@ void read_line(char* buffer, int max, int echo) {
                 int is_letter = (scancode >= 16 && scancode <= 25) || (scancode >= 30 && scancode <= 38) || (scancode >= 44 && scancode <= 50);
                 int uppercase = shift_pressed || (caps_locked && is_letter);
                 char c = uppercase ? kbd_map_shift[scancode] : kbd_map[scancode];
-                
+
                 if (c == '\n') {
                     buffer[ptr] = '\0';
                     if (echo) terminal_putchar('\n');
@@ -111,18 +107,18 @@ void redraw_line() {
     // Get current row
     int row = terminal_get_cursor_row();
     int start_col = prompt_length;
-    
+
     // Clear the line from start_col to end using direct video memory write
     // This avoids triggering scroll
     for (int i = start_col; i < 80; i++) {
         terminal_putchar_at(i, row, ' ');
     }
-    
+
     // Redraw the buffer content
     for (int i = 0; i < shell_ptr; i++) {
         terminal_putchar_at(start_col + i, row, shell_buf[i]);
     }
-    
+
     // Position cursor at cursor_pos
     terminal_move_cursor(start_col + cursor_pos);
 }
@@ -153,7 +149,7 @@ void insert_char(char c) {
         shell_buf[cursor_pos] = c;
         shell_ptr++;
         cursor_pos++;
-        
+
         // Redraw from cursor position
         redraw_line();
     }
@@ -169,7 +165,7 @@ void delete_char_before() {
         shell_ptr--;
         cursor_pos--;
         shell_buf[shell_ptr] = '\0';
-        
+
         // Redraw line
         redraw_line();
     }
@@ -184,7 +180,7 @@ void delete_char_at() {
         }
         shell_ptr--;
         shell_buf[shell_ptr] = '\0';
-        
+
         // Redraw line
         redraw_line();
     }
@@ -205,12 +201,12 @@ void get_previous_history() {
     if (history_count > 0 && history_index > 0) {
         history_index--;
         int prev_index = history_index % HISTORY_SIZE;
-        
+
         // Load previous command
         strcpy(shell_buf, command_history[prev_index]);
         shell_ptr = strlen(shell_buf);
         cursor_pos = shell_ptr;  // Move cursor to end
-        
+
         // Redraw line
         redraw_line();
     }
@@ -222,22 +218,22 @@ void get_next_history() {
         if (history_index < history_count - 1) {
             history_index++;
             int next_index = history_index % HISTORY_SIZE;
-            
+
             // Load next command
             strcpy(shell_buf, command_history[next_index]);
             shell_ptr = strlen(shell_buf);
             cursor_pos = shell_ptr;  // Move cursor to end
-            
+
             // Redraw line
             redraw_line();
         } else if (history_index == history_count - 1) {
             // At the newest entry, go to empty line
             history_index++;
-            
+
             shell_ptr = 0;
             cursor_pos = 0;
             shell_buf[0] = '\0';
-            
+
             // Redraw line (clear it)
             redraw_line();
         }
@@ -248,7 +244,7 @@ void get_next_history() {
 int find_command_matches(const char* prefix, char matches[][32]) {
     int match_count = 0;
     int prefix_len = strlen(prefix);
-    
+
     for (int i = 0; i < commands_count; i++) {
         if (strncmp(available_commands[i], prefix, prefix_len) == 0) {
             strcpy(matches[match_count], available_commands[i]);
@@ -262,7 +258,7 @@ int find_command_matches(const char* prefix, char matches[][32]) {
 int find_directory_matches(const char* prefix, char matches[][32]) {
     int match_count = 0;
     int prefix_len = strlen(prefix);
-    
+
     // For now, provide basic directory completion without accessing commands.c variables
     // This is a simplified version that doesn't require external variable access
     if (strcmp(prefix, "") == 0) {
@@ -284,7 +280,7 @@ int find_directory_matches(const char* prefix, char matches[][32]) {
 // Function to perform tab completion
 void perform_completion() {
     if (shell_ptr == 0) return;
-    
+
     // Find the current word being typed
     int start = 0;
     for (int i = shell_ptr - 1; i >= 0; i--) {
@@ -293,7 +289,7 @@ void perform_completion() {
             break;
         }
     }
-    
+
     char current_word[32];
     int word_len = shell_ptr - start;
     if (word_len >= 32) word_len = 31;
@@ -301,7 +297,7 @@ void perform_completion() {
         current_word[i] = shell_buf[start + i];
     }
     current_word[word_len] = '\0';
-    
+
     // Check if this is a cd command
     int is_cd_command = 0;
     if (start == 0) {
@@ -326,16 +322,16 @@ void perform_completion() {
             }
         }
     }
-    
+
     char matches[10][32];
     int match_count = 0;
-    
+
     if (is_cd_command) {
         match_count = find_directory_matches(current_word, matches);
     } else {
         match_count = find_command_matches(current_word, matches);
     }
-    
+
     if (match_count == 1) {
         // Single match - complete it
         // Remove current word
@@ -424,7 +420,7 @@ void shell_handle_key(char c) {
     if (c == '\n') {
         terminal_putchar('\n');
         shell_buf[shell_ptr] = '\0';
-        
+
         if (shell_ptr > 0) {
             // Add command to history before executing
             add_to_history(shell_buf);
@@ -434,7 +430,7 @@ void shell_handle_key(char c) {
         // Reset buffer and cursor
         shell_ptr = 0;
         cursor_pos = 0;
-        
+
         display_prompt();
     } 
     else if (c == '\b') {
@@ -460,7 +456,6 @@ void shell_main() {
     terminal_writestring("|___|<___||_\\_\\`___'<___/  ONO SUKA RABOTAET\n");
     terminal_writestring("\nWelcome to Lakos OS\n");
 
-    
     // Login
     char username[32];
     char password[32];
@@ -470,7 +465,7 @@ void shell_main() {
         terminal_writestring("Password: ");
         read_line(password, 31, 0);
         terminal_putchar('\n');
-        
+
         // Debug output for troubleshooting
         // Trim whitespace from username before authentication
         char trimmed_username[32];
@@ -483,11 +478,11 @@ void shell_main() {
             src++;
         }
         trimmed_username[dst] = '\0';
-        
+
         terminal_writestring("Attempting login for user: ");
         terminal_writestring(trimmed_username);
         terminal_writestring("\n");
-        
+
         if (authenticate_user(trimmed_username, password)) {
             terminal_writestring("Login successful for user: ");
             terminal_writestring(current_user);
@@ -499,17 +494,15 @@ void shell_main() {
     }
 
     terminal_writestring("Login successful\n");
-    
-    // Display initial prompt and set prompt_length
+
     display_prompt();
-    
-    // Display initial time
+
     terminal_display_time();
-    
+
     while(1) {
-        // Update time display on every iteration
+
         terminal_display_time();
-        
+
         if (inb(0x64) & 0x1) {
             uint8_t scancode = inb(0x60);
             if ((scancode & 0x7F) == 42 || (scancode & 0x7F) == 54) {

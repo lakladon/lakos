@@ -1,8 +1,4 @@
-/*
- * Lakos OS
- * Copyright (c) 2026 lakladon
- * Created: January 9, 2026
- */
+
 
 #ifndef MULTIBOOT_H
 #define MULTIBOOT_H

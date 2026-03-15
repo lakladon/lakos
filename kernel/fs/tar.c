@@ -1,8 +1,4 @@
-/*
- * Lakos OS
- * Copyright (c) 2026 lakladon
- * Created: January 8, 2026
- */
+
 
 #include <stdint.h>
 #include <stddef.h>
@@ -23,26 +19,23 @@ struct tar_header {
     char magic[6];
 } __attribute__((packed));
 
-// Fixed function get_size for octal
 static unsigned int get_size(const char *in) {
     unsigned int size = 0;
     int i = 0;
-    // Skip leading spaces
+
     while (i < 12 && in[i] == ' ') i++;
-    // Parse octal digits
+
     for (; i < 12 && in[i] >= '0' && in[i] <= '7'; i++) {
         size = size * 8 + (in[i] - '0');
     }
     return size;
 }
 
-// Function to check if a path exists in the tar archive
 static int tar_path_exists(void* archive, const char* path) {
     if (!path) {
         return 0;
     }
 
-    // Normalize path: strip leading '/', trim trailing '/'
     const char* norm = path;
     if (norm[0] == '/') {
         norm++;
@@ -60,42 +53,38 @@ static int tar_path_exists(void* archive, const char* path) {
     path_buf[path_len] = '\0';
 
     if (path_buf[0] == '\0') {
-        return 1; // root always exists
+        return 1; 
     }
 
     unsigned char* ptr = (unsigned char*)archive;
-    
+
     while (ptr[0] != '\0') {
         struct tar_header* header = (struct tar_header*)ptr;
-        
-        // Check if this entry matches the path
+
         if (strcmp(header->name, path_buf) == 0) {
-            return 1; // Found exact match
+            return 1; 
         }
 
-        // Allow header names with trailing '/'
         int name_len = strlen(header->name);
         if (name_len > 0 && header->name[name_len - 1] == '/' &&
             name_len - 1 == path_len &&
             strncmp(header->name, path_buf, path_len) == 0) {
             return 1;
         }
-        
-        // Check if this entry is a parent directory of the path
+
         name_len = strlen(header->name);
         if (name_len < path_len && 
             strncmp(header->name, path_buf, name_len) == 0 &&
             path_buf[name_len] == '/') {
-            return 1; // Found parent directory
+            return 1; 
         }
-        
+
         unsigned int size = get_size(header->size);
         ptr += ((size + 511) / 512 + 1) * 512;
     }
-    return 0; // Not found
+    return 0; 
 }
 
-// Function to get all directories from tar archive
 static int tar_add_directory(char directories[][256], int* count, const char* name, int len) {
     if (len <= 0 || *count >= 100) {
         return 0;
@@ -108,7 +97,6 @@ static int tar_add_directory(char directories[][256], int* count, const char* na
     strncpy(temp, name, len);
     temp[len] = '\0';
 
-    // Normalize: trim leading "./" and trailing '/'
     if (temp[0] == '.' && temp[1] == '/') {
         int shift = 2;
         int i = 0;
@@ -132,7 +120,6 @@ static int tar_add_directory(char directories[][256], int* count, const char* na
         return 0;
     }
 
-    // Avoid duplicates
     for (int i = 0; i < *count; i++) {
         if (strcmp(directories[i], temp) == 0) {
             return 0;
@@ -158,7 +145,6 @@ static void tar_add_parent_directories(char directories[][256], int* count, cons
     strncpy(temp, name, limit);
     temp[limit] = '\0';
 
-    // Add each parent directory for nested paths
     for (int i = 0; temp[i] != '\0'; i++) {
         if (temp[i] == '/') {
             tar_add_directory(directories, count, temp, i);
@@ -192,19 +178,16 @@ static void tar_get_all_directories(void* archive, char directories[][256], int*
     }
 }
 
-// Эту функцию ищет линковщик для shell.c!
 void tar_list_files(void* archive) {
     unsigned char* ptr = (unsigned char*)archive;
-    
-    // Если указатель на архив пустой, выходим
+
     if (!ptr) return;
 
     while (ptr[0] != '\0') {
         struct tar_header* header = (struct tar_header*)ptr;
 
-        // Если это обычный файл (type '0' или '\0')
         if (header->name[0] != '\0') {
-            // Здесь должен быть вызов твоей функции печати на экран
+
             terminal_writestring(header->name);
             terminal_writestring("\n");
         }
@@ -322,17 +305,14 @@ void tar_list_directory(void* archive, const char* dirpath) {
     terminal_writestring("\n");
 }
 
-// New function to check if a path exists in tar archive
 int tar_check_path_exists(void* archive, const char* path) {
     return tar_path_exists(archive, path);
 }
 
-// New function to get all directories from tar archive
 void tar_get_directories(void* archive, char directories[][256], int* count) {
     tar_get_all_directories(archive, directories, count);
 }
 
-// Твоя функция поиска
 void* tar_lookup(void* archive, const char* filename) {
     unsigned char* ptr = (unsigned char*)archive;
 
@@ -358,7 +338,6 @@ void* tar_lookup(void* archive, const char* filename) {
     return NULL;
 }
 
-// Get file size for a given path in the tar archive
 int tar_get_file_size(void* archive, const char* filename) {
     unsigned char* ptr = (unsigned char*)archive;
 

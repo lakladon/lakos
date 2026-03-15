@@ -1,8 +1,4 @@
-/*
- * Lakos OS
- * Copyright (c) 2026 lakladon
- * Created: January 11, 2026
- */
+
 
 #include "include/crypt.h"
 
@@ -18,5 +14,5 @@ void encrypt_password(const char* pass, const char* key, char* output) {
 }
 
 void decrypt_password(const char* enc, const char* key, char* output) {
-    encrypt_password(enc, key, output); // XOR is symmetric
+    encrypt_password(enc, key, output); 
 }

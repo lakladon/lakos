@@ -1,5 +1,4 @@
-// Calculator command for Lakos OS shell
-// Supports: +, -, *, /, parentheses, integers and floating point
+
 
 static char* calc_expr;
 static int calc_pos;
@@ -12,23 +11,21 @@ static void calc_skip_spaces() {
 
 static float calc_parse_number() {
     calc_skip_spaces();
-    
+
     int negative = 0;
     if (calc_expr[calc_pos] == '-') {
         negative = 1;
         calc_pos++;
         calc_skip_spaces();
     }
-    
+
     float result = 0;
-    
-    // Parse integer part
+
     while (calc_expr[calc_pos] >= '0' && calc_expr[calc_pos] <= '9') {
         result = result * 10 + (calc_expr[calc_pos] - '0');
         calc_pos++;
     }
-    
-    // Parse decimal part
+
     if (calc_expr[calc_pos] == '.') {
         calc_pos++;
         float decimal = 0.1f;
@@ -38,13 +35,13 @@ static float calc_parse_number() {
             calc_pos++;
         }
     }
-    
+
     return negative ? -result : result;
 }
 
 static float calc_parse_factor() {
     calc_skip_spaces();
-    
+
     if (calc_expr[calc_pos] == '(') {
         calc_pos++;
         float result = calc_parse_expr();
@@ -54,21 +51,21 @@ static float calc_parse_factor() {
         }
         return result;
     }
-    
+
     return calc_parse_number();
 }
 
 static float calc_parse_term() {
     float result = calc_parse_factor();
-    
+
     while (1) {
         calc_skip_spaces();
         char op = calc_expr[calc_pos];
-        
+
         if (op == '*' || op == '/') {
             calc_pos++;
             float right = calc_parse_factor();
-            
+
             if (op == '*') {
                 result *= right;
             } else {
@@ -82,21 +79,21 @@ static float calc_parse_term() {
             break;
         }
     }
-    
+
     return result;
 }
 
 static float calc_parse_expr() {
     float result = calc_parse_term();
-    
+
     while (1) {
         calc_skip_spaces();
         char op = calc_expr[calc_pos];
-        
+
         if (op == '+' || op == '-') {
             calc_pos++;
             float right = calc_parse_term();
-            
+
             if (op == '+') {
                 result += right;
             } else {
@@ -106,7 +103,7 @@ static float calc_parse_expr() {
             break;
         }
     }
-    
+
     return result;
 }
 
@@ -116,18 +113,16 @@ static void calc_ftoa(float value, char* buffer) {
         buffer[1] = '\0';
         return;
     }
-    
+
     int negative = 0;
     if (value < 0) {
         negative = 1;
         value = -value;
     }
-    
-    // Extract integer part
+
     int int_part = (int)value;
     float frac_part = value - (float)int_part;
-    
-    // Convert integer part
+
     char int_str[16];
     int i = 0;
     if (int_part == 0) {
@@ -138,7 +133,7 @@ static void calc_ftoa(float value, char* buffer) {
             int_part /= 10;
         }
     }
-    
+
     int j = 0;
     if (negative) {
         buffer[j++] = '-';
@@ -146,29 +141,26 @@ static void calc_ftoa(float value, char* buffer) {
     while (i > 0) {
         buffer[j++] = int_str[--i];
     }
-    
-    // Add decimal part if non-zero
+
     if (frac_part > 0.0001f) {
         buffer[j++] = '.';
-        
-        // Up to 4 decimal places
+
         for (int d = 0; d < 4 && frac_part > 0.0001f; d++) {
             frac_part *= 10;
             int digit = (int)frac_part;
             buffer[j++] = '0' + digit;
             frac_part -= digit;
         }
-        
-        // Remove trailing zeros
+
         while (j > 0 && buffer[j-1] == '0') {
             j--;
         }
-        // Remove trailing dot
+
         if (j > 0 && buffer[j-1] == '.') {
             j--;
         }
     }
-    
+
     buffer[j] = '\0';
 }
 
@@ -185,15 +177,15 @@ static void cmd_calc(const char* args) {
         terminal_writestring("Supports integers and floating point numbers\n");
         return;
     }
-    
+
     calc_expr = (char*)args;
     calc_pos = 0;
-    
+
     float result = calc_parse_expr();
-    
+
     char buffer[32];
     calc_ftoa(result, buffer);
-    
+
     terminal_writestring(args);
     terminal_writestring(" = ");
     terminal_writestring(buffer);

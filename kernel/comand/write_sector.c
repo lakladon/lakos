@@ -7,7 +7,7 @@ static void cmd_write_sector(const char* args) {
     if (drive >= 0 && lba >= 0) {
         uint16_t buffer[256];
         memset(buffer, 0, 512);
-        buffer[0] = 0x4141; // 'AA'
+        buffer[0] = 0x4141; 
         ata_write_sector(drive, lba, buffer);
         terminal_writestring("Sector written with test data\n");
     } else {

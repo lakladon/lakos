@@ -1,8 +1,4 @@
-/*
- * Lakos OS
- * Copyright (c) 2026 lakladon
- * Created: February 1, 2026
- */
+
 
 #include "include/lib.h"
 
@@ -125,7 +121,7 @@ void itoa(int n, char* buf) {
     }
     if (sign < 0) buf[i++] = '-';
     buf[i] = '\0';
-    // reverse
+
     for (int j = 0; j < i/2; j++) {
         char t = buf[j];
         buf[j] = buf[i-1-j];
@@ -134,8 +130,7 @@ void itoa(int n, char* buf) {
 }
 
 int snprintf(char* str, unsigned int size, const char* format, ...) {
-    // Simple implementation that just copies the format string
-    // This is a minimal implementation for our kernel
+
     unsigned int i = 0;
     while (format[i] != '\0' && i < size - 1) {
         str[i] = format[i];

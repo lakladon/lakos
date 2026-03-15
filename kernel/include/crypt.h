@@ -1,8 +1,4 @@
-/*
- * Lakos OS
- * Copyright (c) 2026 lakladon
- * Created: January 11, 2026
- */
+
 
 #ifndef CRYPT_H
 #define CRYPT_H

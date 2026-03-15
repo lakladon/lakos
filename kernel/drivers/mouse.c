@@ -1,8 +1,4 @@
-/*
- * Lakos OS
- * Copyright (c) 2026 lakladon
- * Created: January 10, 2026
- */
+
 
 #include <stdint.h>
 #include "io.h"
@@ -43,24 +39,24 @@ uint8_t mouse_read() {
 
 void mouse_install() {
     terminal_writestring("Mouse driver loading...\n");
-    // Enable auxiliary device
+
     mouse_wait(1);
     outb(0x64, 0xA8);
-    // Enable interrupts
+
     mouse_wait(1);
     outb(0x64, 0x20);
     mouse_wait(0);
-    uint8_t status = inb(0x60) | 2; // set bit 1
+    uint8_t status = inb(0x60) | 2; 
     mouse_wait(1);
     outb(0x64, 0x60);
     mouse_wait(1);
     outb(0x60, status);
-    // Set defaults
+
     mouse_write(0xF6);
-    mouse_read(); // ack
-    // Enable data reporting
+    mouse_read(); 
+
     mouse_write(0xF4);
-    mouse_read(); // ack
+    mouse_read(); 
     terminal_writestring("Mouse driver loaded: 0xPS2\n");
 }
 
@@ -69,13 +65,13 @@ void mouse_handler() {
     mouse_packet[mouse_packet_index] = data;
     mouse_packet_index = (mouse_packet_index + 1) % 3;
     if (mouse_packet_index == 0) {
-        // Process packet
+
         uint8_t flags = mouse_packet[0];
-        mouse_buttons = flags & 7; // bits 0:left, 1:right, 2:middle
+        mouse_buttons = flags & 7; 
         int dx = (int8_t)mouse_packet[1];
         int dy = (int8_t)mouse_packet[2];
         mouse_x += dx;
-        mouse_y -= dy; // inverted
+        mouse_y -= dy; 
         if (mouse_x < 0) mouse_x = 0;
         if (mouse_x >= 320) mouse_x = 319;
         if (mouse_y < 0) mouse_y = 0;

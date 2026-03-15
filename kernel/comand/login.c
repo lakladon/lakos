@@ -17,7 +17,6 @@ static void cmd_login(const char* args) {
         for (int i = 0; i < passlen; i++) password[i] = pass[i];
         password[passlen] = '\0';
 
-        // Trim whitespace from username before authentication
         char trimmed_username[32];
         int src = 0, dst = 0;
         while (username[src] == ' ' || username[src] == '\t') src++;
