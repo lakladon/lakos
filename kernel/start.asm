@@ -1,6 +1,11 @@
+; Lakos OS
+; Copyright (c) 2026 lakladon
+; Created: January 11, 2026
+
 section .text
 global _start
 extern kmain
+
 _start:
     mov esp, 0x200000
     mov ebp, 0x200000
