@@ -71,6 +71,12 @@ const multiboot_header_t __attribute__((section(".multiboot"))) header = {
 #define VGA_AC_READ 0x3C1
 #define VGA_INSTAT_READ 0x3DA
 
+// VGA Sequencer registers for font loading
+#define VGA_SEQ_INDEX 0x3C4
+#define VGA_SEQ_DATA 0x3C5
+#define VGA_GC_INDEX 0x3CE
+#define VGA_GC_DATA 0x3CF
+
 uint16_t* video_memory = (uint16_t*)VIDEO_MEMORY;
 
 int term_col = 0;
@@ -372,6 +378,75 @@ void terminal_display_time() {
     current_attr = saved_attr;
 }
 
+// External font data from font.c
+extern const uint8_t extended_font[192][8];
+
+// Load Cyrillic font (characters 128-191) into VGA
+void vga_load_cyrillic_font() {
+    // Save current state
+    uint8_t seq_index = inb(VGA_SEQ_INDEX);
+    uint8_t gc_index = inb(VGA_GC_INDEX);
+    
+    // Disable screen during font loading
+    outb(VGA_SEQ_INDEX, 0x01);
+    outb(VGA_SEQ_DATA, inb(VGA_SEQ_DATA) | 0x20); // Set screen off bit
+    
+    // Select font plane (plane 2)
+    outb(VGA_SEQ_INDEX, 0x02);
+    outb(VGA_SEQ_DATA, 0x04); // Select plane 2
+    
+    outb(VGA_SEQ_INDEX, 0x04);
+    outb(VGA_SEQ_DATA, 0x06); // Enable font access
+    
+    outb(VGA_GC_INDEX, 0x04);
+    outb(VGA_GC_DATA, 0x02); // Read from plane 2
+    
+    outb(VGA_GC_INDEX, 0x05);
+    outb(VGA_GC_DATA, 0x00); // Write mode 0
+    
+    outb(VGA_GC_INDEX, 0x06);
+    outb(VGA_GC_DATA, 0x00); // Map video memory at A0000
+    
+    // Load Cyrillic characters (128-191) into VGA font
+    // VGA font memory starts at 0xA0000, each character is 32 bytes (8 bytes data + padding)
+    uint8_t* vga_font = (uint8_t*)0xA0000;
+    
+    for (int i = 128; i < 192; i++) {
+        int font_offset = i * 32; // Each character slot is 32 bytes
+        for (int j = 0; j < 8; j++) {
+            vga_font[font_offset + j] = extended_font[i][j];
+        }
+        // Clear padding bytes
+        for (int j = 8; j < 32; j++) {
+            vga_font[font_offset + j] = 0;
+        }
+    }
+    
+    // Restore VGA state
+    outb(VGA_GC_INDEX, 0x06);
+    outb(VGA_GC_DATA, 0x0E); // Restore memory mapping
+    
+    outb(VGA_GC_INDEX, 0x04);
+    outb(VGA_GC_DATA, 0x00); // Restore read plane
+    
+    outb(VGA_GC_INDEX, 0x05);
+    outb(VGA_GC_DATA, 0x10); // Restore write mode
+    
+    outb(VGA_SEQ_INDEX, 0x02);
+    outb(VGA_SEQ_DATA, 0x03); // Restore plane selection
+    
+    outb(VGA_SEQ_INDEX, 0x04);
+    outb(VGA_SEQ_DATA, 0x02); // Restore sequencer mode
+    
+    // Re-enable screen
+    outb(VGA_SEQ_INDEX, 0x01);
+    outb(VGA_SEQ_DATA, inb(VGA_SEQ_DATA) & ~0x20); // Clear screen off bit
+    
+    // Restore original indices
+    outb(VGA_SEQ_INDEX, seq_index);
+    outb(VGA_GC_INDEX, gc_index);
+}
+
 // Prototypes
 void init_gdt();
 void idt_init();
@@ -394,6 +469,10 @@ void kmain(multiboot_info_t* mb_info, uint32_t magic) {
     terminal_writestring("Lakos OS v");
     terminal_writestring(KERNEL_VERSION);
     terminal_writestring("\n\n");
+
+    // Load Cyrillic font for Russian keyboard support
+    vga_load_cyrillic_font();
+    terminal_writestring("Cyrillic font loaded\n");
 
     init_gdt();
     idt_init();
