@@ -25,6 +25,7 @@ OBJ = \
       kernel/lib.o \
       kernel/commands.o \
       kernel/vga.o \
+      kernel/font.o \
       kernel/gui.o \
       kernel/users.o \
       kernel/crypt.o \
